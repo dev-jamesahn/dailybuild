@@ -34,6 +34,7 @@ def build_parser() -> argparse.ArgumentParser:
     upload_cmd.add_argument("--config", default="config/autobuild_common.env")
     upload_cmd.add_argument("--status-file", help="Override daily status file path")
     upload_cmd.add_argument("--output-dir", help="Override local upload root for testing")
+    upload_cmd.add_argument("--force", action="store_true", help="Upload even when the upload flag already exists")
     upload_cmd.set_defaults(func=upload.run)
 
     notify = sub.add_parser("notify", help="Send daily report mail")

@@ -132,6 +132,11 @@ def run(args) -> int:
         print(f"[WARN] Daily log upload skipped: daily status file not found: {status_file}")
         return 0
 
+    flag = Path(env.get("UPLOAD_FLAG_FILE") or Path(env.get("AUTOBUILD_STATE_ROOT", "/home/jamesahn/gct_workspace/autobuild/state")) / f".daily_autobuild_logs_uploaded_{run_date}.flag")
+    if flag.exists() and not getattr(args, "force", False):
+        print(f"[INFO] Daily log upload skipped: already uploaded for RUN_DATE={run_date}")
+        return 0
+
     upload_root = env.get("SAMBA_UPLOAD_LOCAL_DIR")
     if not upload_root:
         raise SystemExit("SAMBA_UPLOAD_LOCAL_DIR is required in the Python uploader for now")
@@ -169,7 +174,6 @@ def run(args) -> int:
         target_dir = Path(upload_root) / run_date
         shutil.copytree(package_dir, target_dir, dirs_exist_ok=True)
 
-    flag = Path(env.get("UPLOAD_FLAG_FILE") or Path(env.get("AUTOBUILD_STATE_ROOT", "/home/jamesahn/gct_workspace/autobuild/state")) / f".daily_autobuild_logs_uploaded_{run_date}.flag")
     flag.parent.mkdir(parents=True, exist_ok=True)
     flag.write_text(f"uploaded_at={dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\nrun_date={run_date}\ntarget={target_dir}\n", encoding="utf-8")
     print(f"[INFO] Daily log upload completed: {target_dir}")
