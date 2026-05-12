@@ -10,20 +10,23 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from .config import AutobuildPaths, legacy_autobuild_dir, merged_env
-
-
-def _call_legacy(script_name: str, *extra: str) -> int:
-    env = merged_env(None)
-    script = legacy_autobuild_dir(env) / script_name
-    if not script.exists():
-        raise SystemExit(f"Missing legacy script: {script}")
-    return subprocess.call([str(script), *extra], env=env)
+from .config import AutobuildPaths, merged_env
 
 
 def install_cron(args) -> int:
-    extra = ["--dry-run"] if getattr(args, "dry_run", False) else []
-    return _call_legacy("install_autobuild_cron.sh", *extra)
+    lines = _daily_cron_lines()
+    if getattr(args, "dry_run", False):
+        print("Cron entries to install:")
+        for line in lines:
+            print(line)
+        return 0
+
+    _validate_daily_cron_inputs()
+    _install_crontab(lines)
+    print("Installed cron entries:")
+    for line in lines:
+        print(line)
+    return 0
 
 
 @dataclass(frozen=True)
@@ -39,6 +42,77 @@ def _q(value: str | Path) -> str:
 
 def _shell_env(**values: str | Path) -> str:
     return " ".join(f"{key}={_q(value)}" for key, value in values.items() if value is not None)
+
+
+CRON_TAGS = [
+    "OPENWRT_V100_AUTOBUILD",
+    "OPENWRT_AUTOBUILD_V100",
+    "OPENWRT_AUTOBUILD_MASTER",
+    "ZEPHYROS_AUTOBUILD",
+    "GDM7275X_LINUXOS_MASTER_AUTOBUILD",
+    "GDM7243A_UTKERNEL_AUTOBUILD",
+    "GDM7243ST_UTKERNEL_AUTOBUILD",
+    "GDM7243I_ZEPHYR_V2_3_AUTOBUILD",
+    "DAILY_AUTOBUILD_MAIL_NOTIFIER",
+]
+
+
+def _daily_cron_jobs() -> list[tuple[str, str, str, str, str]]:
+    return [
+        ("0 0 * * *", "run-openwrt", "openwrt_v1.00_autobuild.env", "openwrt/v1.00/cron_runner.log", "# OPENWRT_AUTOBUILD_V100"),
+        ("1 0 * * *", "run-openwrt", "openwrt_master_autobuild.env", "openwrt/master/cron_runner.log", "# OPENWRT_AUTOBUILD_MASTER"),
+        ("2 0 * * *", "run-os", "gdm7275x_linuxos_master_autobuild.env", "linuxos/gdm7275x/cron_runner.log", "# GDM7275X_LINUXOS_MASTER_AUTOBUILD"),
+        ("3 0 * * *", "run-zephyros", "zephyros_autobuild.env", "zephyros/cron_runner.log", "# ZEPHYROS_AUTOBUILD"),
+        ("4 0 * * *", "run-os", "gdm7243a_utkernel_autobuild.env", "uTKernel/gdm7243a/cron_runner.log", "# GDM7243A_UTKERNEL_AUTOBUILD"),
+        ("5 0 * * *", "run-os", "gdm7243st_utkernel_autobuild.env", "uTKernel/gdm7243st/cron_runner.log", "# GDM7243ST_UTKERNEL_AUTOBUILD"),
+        ("6 0 * * *", "run-os", "gdm7243i_zephyr_v2.3_autobuild.env", "zephyr_v2_3/gdm7243i/cron_runner.log", "# GDM7243I_ZEPHYR_V2_3_AUTOBUILD"),
+    ]
+
+
+def _daily_cron_lines() -> list[str]:
+    env = merged_env(None)
+    repo_root = Path(__file__).resolve().parents[1]
+    entrypoint = repo_root / "autobuild.py"
+    config_root = Path(env.get("AUTOBUILD_CONFIG_ROOT", repo_root / "config"))
+    log_root = AutobuildPaths.from_env(env).log_root
+    lines = []
+    for schedule, subcommand, config_name, log_rel, tag in _daily_cron_jobs():
+        config_file = config_root / config_name
+        log_file = log_root / log_rel
+        line = f"{schedule} {_q(entrypoint)} {subcommand} --config {_q(config_file)} >> {_q(log_file)} 2>&1 {tag}"
+        lines.append(line)
+    notifier_log = log_root / "notifier/daily_autobuild_mail_notifier.log"
+    common_config = config_root / "autobuild_common.env"
+    lines.append(f"*/10 * * * * {_q(entrypoint)} notify --config {_q(common_config)} >> {_q(notifier_log)} 2>&1 # DAILY_AUTOBUILD_MAIL_NOTIFIER")
+    return lines
+
+
+def _validate_daily_cron_inputs() -> None:
+    env = merged_env(None)
+    repo_root = Path(__file__).resolve().parents[1]
+    config_root = Path(env.get("AUTOBUILD_CONFIG_ROOT", repo_root / "config"))
+    required = [config_root / "autobuild_common.env"]
+    required.extend(config_root / job[2] for job in _daily_cron_jobs())
+    missing = [str(path) for path in required if not path.is_file()]
+    if missing:
+        raise SystemExit("Missing required config file(s):\n" + "\n".join(missing))
+
+    upload_dir = merged_env(config_root / "autobuild_common.env").get("SAMBA_UPLOAD_LOCAL_DIR", "")
+    if upload_dir and not os.access(upload_dir, os.W_OK):
+        raise SystemExit(f"Samba upload local dir is not writable: {upload_dir}")
+
+    log_root = AutobuildPaths.from_env(env).log_root
+    for _, _, _, log_rel, _ in _daily_cron_jobs():
+        (log_root / log_rel).parent.mkdir(parents=True, exist_ok=True)
+    (log_root / "notifier").mkdir(parents=True, exist_ok=True)
+
+
+def _install_crontab(lines: list[str]) -> None:
+    current = subprocess.run(["crontab", "-l"], text=True, capture_output=True)
+    existing = current.stdout.splitlines() if current.returncode == 0 else []
+    kept = [line for line in existing if not any(tag in line for tag in CRON_TAGS)]
+    new_cron = "\n".join(kept + lines) + "\n"
+    subprocess.run(["crontab", "-"], input=new_cron, text=True, check=True)
 
 
 def _test_once_plan() -> tuple[list[ScheduledCommand], Path]:
