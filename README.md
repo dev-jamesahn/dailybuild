@@ -24,6 +24,8 @@ For isolated upload validation before Samba or cron rollout:
 
 ./autobuild.py notify --run-date 20260512 \
   --status-file /path/to/daily_autobuild_status_20260512.txt
+
+./autobuild.py notify --run-date 20260512 --force
 ```
 
 ## Layout

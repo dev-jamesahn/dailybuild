@@ -120,6 +120,11 @@ def notify(args) -> int:
         print(f"[WARN] Daily mail notifier skipped: daily status file not found: {status_file}")
         return 0
 
+    sent_flag = Path(env.get("SENT_FLAG_FILE") or Path(env.get("AUTOBUILD_STATE_ROOT", "/home/jamesahn/gct_workspace/autobuild/state")) / f".daily_autobuild_mail_sent_{run_date}.flag")
+    if sent_flag.exists() and not getattr(args, "force", False):
+        print(f"[INFO] Daily mail notifier skipped: already sent for RUN_DATE={run_date}")
+        return 0
+
     smtp_host = env.get("SMTP_HOST", "")
     mail_from = env.get("MAIL_FROM") or env.get("SMTP_USER", "")
     recipients = [addr.strip() for addr in env.get("MAIL_TO", "").split(",") if addr.strip()]
@@ -152,7 +157,6 @@ def notify(args) -> int:
             smtp.login(env.get("SMTP_USER", ""), env.get("SMTP_PASSWORD", ""))
         smtp.send_message(msg)
 
-    sent_flag = Path(env.get("SENT_FLAG_FILE") or Path(env.get("AUTOBUILD_STATE_ROOT", "/home/jamesahn/gct_workspace/autobuild/state")) / f".daily_autobuild_mail_sent_{run_date}.flag")
     sent_flag.parent.mkdir(parents=True, exist_ok=True)
     sent_flag.write_text(f"sent_at={dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\nrun_date={run_date}\n", encoding="utf-8")
     print(f"[INFO] Daily mail notifier sent to: {','.join(recipients)}")
