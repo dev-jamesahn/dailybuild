@@ -19,14 +19,17 @@ def build_parser() -> argparse.ArgumentParser:
 
     run_openwrt = sub.add_parser("run-openwrt", help="Run an OpenWrt autobuild")
     run_openwrt.add_argument("--config", required=True, help="Path to OpenWrt env config")
+    run_openwrt.add_argument("--dry-run", action="store_true", help="Print the legacy command without running it")
     run_openwrt.set_defaults(func=runner.run_openwrt)
 
     run_os = sub.add_parser("run-os", help="Run an OS autobuild")
     run_os.add_argument("--config", required=True, help="Path to OS env config")
+    run_os.add_argument("--dry-run", action="store_true", help="Print the legacy command without running it")
     run_os.set_defaults(func=runner.run_os)
 
     run_zephyros = sub.add_parser("run-zephyros", help="Run a Zephyros autobuild")
     run_zephyros.add_argument("--config", required=True, help="Path to Zephyros env config")
+    run_zephyros.add_argument("--dry-run", action="store_true", help="Print the legacy command without running it")
     run_zephyros.set_defaults(func=runner.run_zephyros)
 
     upload_cmd = sub.add_parser("upload", help="Upload daily logs and images")
