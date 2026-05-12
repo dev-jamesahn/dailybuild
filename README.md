@@ -15,6 +15,14 @@ Python migration of the GCT daily autobuild tools.
 ./autobuild.py test-once
 ```
 
+For isolated upload validation before Samba or cron rollout:
+
+```bash
+./autobuild.py upload --run-date 20260512 \
+  --status-file /path/to/daily_autobuild_status_20260512.txt \
+  --output-dir /tmp/dailybuild-upload-test
+```
+
 ## Layout
 
 ```text

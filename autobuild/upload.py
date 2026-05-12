@@ -117,7 +117,12 @@ def _status_log_paths(status_file: Path) -> list[Path]:
 
 def run(args) -> int:
     run_date = args.run_date or today()
-    env = merged_env(args.config, {"RUN_DATE": run_date})
+    overrides = {"RUN_DATE": run_date}
+    if getattr(args, "status_file", None):
+        overrides["DAILY_STATUS_FILE"] = args.status_file
+    if getattr(args, "output_dir", None):
+        overrides["SAMBA_UPLOAD_LOCAL_DIR"] = args.output_dir
+    env = merged_env(args.config, overrides)
     if env.get("SAMBA_UPLOAD_ENABLED", "1") != "1":
         print(f"[INFO] Daily log upload skipped: SAMBA_UPLOAD_ENABLED={env.get('SAMBA_UPLOAD_ENABLED')}")
         return 0
