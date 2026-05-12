@@ -39,6 +39,7 @@ def build_parser() -> argparse.ArgumentParser:
     notify = sub.add_parser("notify", help="Send daily report mail")
     notify.add_argument("--run-date", help="Run date in YYYYMMDD format")
     notify.add_argument("--config", default="config/autobuild_common.env")
+    notify.add_argument("--status-file", help="Override daily status file path")
     notify.set_defaults(func=mail.notify)
 
     test_once = sub.add_parser("test-once", help="Schedule a one-time full daily test")

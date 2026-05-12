@@ -107,7 +107,10 @@ def build_html(status_file: Path, subject: str, run_date: str, samba_unc_root: s
 
 def notify(args) -> int:
     run_date = args.run_date or today()
-    env = merged_env(args.config, {"RUN_DATE": run_date})
+    overrides = {"RUN_DATE": run_date}
+    if getattr(args, "status_file", None):
+        overrides["DAILY_STATUS_FILE"] = args.status_file
+    env = merged_env(args.config, overrides)
     if env.get("EMAIL_NOTI_ENABLED", "0") != "1":
         print(f"[INFO] Daily mail notifier skipped: EMAIL_NOTI_ENABLED={env.get('EMAIL_NOTI_ENABLED')}")
         return 0
