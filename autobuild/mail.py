@@ -8,10 +8,12 @@ import ssl
 from email.message import EmailMessage
 from html import escape
 from pathlib import Path
+from types import SimpleNamespace
 
 from .config import daily_status_file, merged_env, today
 from .lock import LockDir, LockHeld
 from .status import parse_status_file
+from . import upload
 from .upload import safe_name
 
 
@@ -132,6 +134,16 @@ def _notify_with_lock(args, env: dict[str, str], run_date: str) -> int:
         return 0
 
     sent_flag = Path(env.get("SENT_FLAG_FILE") or Path(env.get("AUTOBUILD_STATE_ROOT", "/home/jamesahn/gct_workspace/autobuild/state")) / f".daily_autobuild_mail_sent_{run_date}.flag")
+    upload_flag = Path(env.get("UPLOAD_FLAG_FILE") or Path(env.get("AUTOBUILD_STATE_ROOT", "/home/jamesahn/gct_workspace/autobuild/state")) / f".daily_autobuild_logs_uploaded_{run_date}.flag")
+    if not upload_flag.exists():
+        upload.run(SimpleNamespace(
+            run_date=run_date,
+            config=getattr(args, "config", "config/autobuild_common.env"),
+            status_file=getattr(args, "status_file", None),
+            output_dir=None,
+            force=False,
+        ))
+
     if sent_flag.exists() and not getattr(args, "force", False):
         print(f"[INFO] Daily mail notifier skipped: already sent for RUN_DATE={run_date}")
         return 0
