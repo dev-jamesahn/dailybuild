@@ -115,6 +115,16 @@ def _status_log_paths(status_file: Path) -> list[Path]:
     return paths
 
 
+def _replace_dir_contents(src: Path, dst: Path) -> None:
+    dst.mkdir(parents=True, exist_ok=True)
+    for child in dst.iterdir():
+        if child.is_dir():
+            shutil.rmtree(child)
+        else:
+            child.unlink()
+    shutil.copytree(src, dst, dirs_exist_ok=True)
+
+
 def run(args) -> int:
     run_date = args.run_date or today()
     overrides = {"RUN_DATE": run_date}
@@ -172,7 +182,7 @@ def run(args) -> int:
 
         (package_dir / "upload_manifest.txt").write_text("\n".join(manifest) + "\n", encoding="utf-8")
         target_dir = Path(upload_root) / run_date
-        shutil.copytree(package_dir, target_dir, dirs_exist_ok=True)
+        _replace_dir_contents(package_dir, target_dir)
 
     flag.parent.mkdir(parents=True, exist_ok=True)
     flag.write_text(f"uploaded_at={dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\nrun_date={run_date}\ntarget={target_dir}\n", encoding="utf-8")
