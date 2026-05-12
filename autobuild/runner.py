@@ -9,7 +9,9 @@ import shlex
 import subprocess
 from pathlib import Path
 
-from .config import legacy_autobuild_dir, merged_env
+from .config import AutobuildPaths, legacy_autobuild_dir, merged_env
+from .lock import LockDir, LockHeld
+from .upload import safe_name
 
 
 def _q(value: str | Path) -> str:
@@ -25,10 +27,29 @@ def _run_legacy(script_name: str, config_file: str, dry_run: bool = False) -> in
     script = legacy_autobuild_dir(env) / script_name
     if not script.exists():
         raise SystemExit(f"Missing legacy script: {script}")
+    lock_dir = _lock_dir(env, config_path)
     if dry_run:
+        print(f"LOCK_DIR={_q(lock_dir)}")
         print(f"CONFIG_FILE={_q(config_path)} {_q(script)}")
         return 0
-    return subprocess.call([str(script)], env=env)
+    try:
+        with LockDir(lock_dir):
+            return subprocess.call([str(script)], env=env)
+    except LockHeld:
+        print(f"[INFO] Build skipped: another run is in progress for {config_path}")
+        return 0
+
+
+def _lock_dir(env: dict[str, str], config_path: Path) -> Path:
+    target = (
+        env.get("TARGET_NAME")
+        or env.get("OPENWRT_BRANCH")
+        or env.get("ZEPHYROS_CONFIG_NAME")
+        or env.get("OS_BUILD_VARIANT")
+        or config_path.stem
+    )
+    lock_name = f"build_{safe_name(target)}.lock"
+    return Path(env.get("BUILD_LOCK_DIR") or AutobuildPaths.from_env(env).tmp_root / lock_name)
 
 
 def run_openwrt(args) -> int:
