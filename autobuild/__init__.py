@@ -3,6 +3,7 @@
 __all__ = [
     "config",
     "gitinfo",
+    "lock",
     "mail",
     "runner",
     "scheduler",

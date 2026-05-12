@@ -10,6 +10,7 @@ from html import escape
 from pathlib import Path
 
 from .config import daily_status_file, merged_env, today
+from .lock import LockDir, LockHeld
 from .status import parse_status_file
 from .upload import safe_name
 
@@ -111,6 +112,16 @@ def notify(args) -> int:
     if getattr(args, "status_file", None):
         overrides["DAILY_STATUS_FILE"] = args.status_file
     env = merged_env(args.config, overrides)
+    lock_dir = Path(env.get("LOCK_DIR") or Path(env.get("AUTOBUILD_TMP_ROOT", "/home/jamesahn/gct_workspace/autobuild/tmp")) / f"daily_autobuild_mail_notifier_{run_date}.lock")
+    try:
+        with LockDir(lock_dir):
+            return _notify_with_lock(args, env, run_date)
+    except LockHeld:
+        print("[INFO] Daily mail notifier skipped: another notifier run is in progress")
+        return 0
+
+
+def _notify_with_lock(args, env: dict[str, str], run_date: str) -> int:
     if env.get("EMAIL_NOTI_ENABLED", "0") != "1":
         print(f"[INFO] Daily mail notifier skipped: EMAIL_NOTI_ENABLED={env.get('EMAIL_NOTI_ENABLED')}")
         return 0
