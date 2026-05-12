@@ -1,0 +1,156 @@
+"""Daily report mail generation and SMTP delivery."""
+
+from __future__ import annotations
+
+import datetime as dt
+import smtplib
+import ssl
+from email.message import EmailMessage
+from html import escape
+from pathlib import Path
+
+from .config import daily_status_file, merged_env, today
+from .status import parse_status_file
+from .upload import safe_name
+
+
+def _split_model_item(section_name: str) -> tuple[str, str]:
+    parts = section_name.split(maxsplit=1)
+    if len(parts) == 2 and parts[0].startswith("GDM"):
+        return parts[0], parts[1]
+    if section_name.startswith("OpenWrt ") or section_name == "Zephyros":
+        return "GDM7275X", section_name
+    return "Other", section_name
+
+
+def _upload_dir_name(section_name: str, item_name: str) -> str:
+    if item_name == "OpenWrt v1.00":
+        return "GDM7275X\\openwrt_v100"
+    if item_name == "OpenWrt master":
+        return "GDM7275X\\openwrt_master"
+    if item_name == "Linuxos master":
+        return "GDM7275X\\linuxos_master"
+    if item_name == "Zephyros":
+        return "GDM7275X\\Zephyros"
+    lowered = section_name.lower()
+    if "gdm7243st" in lowered:
+        return "GDM7243ST\\uTKernel"
+    if "gdm7243a" in lowered:
+        return "GDM7243A\\uTKernel"
+    if "gdm7243i" in lowered:
+        return "GDM7243i\\zephyr_v2.3"
+    return safe_name(section_name)
+
+
+def build_html(status_file: Path, subject: str, run_date: str, samba_unc_root: str) -> str:
+    groups: dict[str, list[tuple[str, str]]] = {}
+    for section in parse_status_file(status_file):
+        model, item = _split_model_item(section.name)
+        result = section.fields.get("Result", "UNKNOWN")
+        duration = section.fields.get("Duration", "")
+        failure_analysis = section.fields.get("Failure analysis", "")
+        status_color = "#177245" if result == "SUCCESS" else "#b42318" if result == "FAIL" else "#475467"
+        status_bg = "#ecfdf3" if result == "SUCCESS" else "#fef3f2" if result == "FAIL" else "#f2f4f7"
+        upload_root = samba_unc_root.rstrip("\\")
+        log_path = f"{upload_root}\\{run_date}\\{_upload_dir_name(section.name, item)}\\Log" if upload_root else ""
+        image_path = f"{upload_root}\\{run_date}\\{_upload_dir_name(section.name, item)}\\Image" if upload_root and result == "SUCCESS" else ""
+        git_block = "\n".join(escape(line) for line in section.git_log)
+        details = []
+        if duration:
+            details.append(f"<div><strong>Duration:</strong> {escape(duration)}</div>")
+        if git_block:
+            details.append("<div><strong>Last commit:</strong></div><pre style='margin:4px 0 0 18px;padding:8px 10px;background:#f8fafc;border:1px solid #e4e7ec;border-radius:6px;font-family:Consolas,Menlo,monospace;font-size:12px;line-height:1.45;color:#344054;white-space:pre-wrap;'>" + git_block + "</pre>")
+        if failure_analysis:
+            details.append(f"<div><strong>Failure analysis:</strong> {escape(failure_analysis)}</div>")
+        if log_path:
+            details.append(f"<div><strong>Log PATH:</strong> <span style='font-family:monospace;color:#0b63ce;'>{escape(log_path)}</span></div>")
+        if image_path:
+            details.append(f"<div><strong>Image PATH:</strong> <span style='font-family:monospace;color:#0b63ce;'>{escape(image_path)}</span></div>")
+        card = (
+            "<div style='border:1px solid #e4e7ec;border-radius:8px;padding:14px 16px;background:#ffffff;margin:10px 0 0 18px;'>"
+            "<div style='display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px;'>"
+            f"<div style='font-size:15px;font-weight:700;color:#101828;'>- {escape(item.replace('OpenWrt', 'OpenWRT', 1))}</div>"
+            f"<div style='padding:4px 10px;border-radius:999px;background:{status_bg};color:{status_color};font-size:12px;font-weight:700;white-space:nowrap;'>{escape(result)}</div>"
+            "</div><div style='font-size:13px;line-height:1.6;color:#344054;'>"
+            + "".join(details)
+            + "</div></div>"
+        )
+        groups.setdefault(model, []).append((item, card))
+
+    order = {"GDM7275X": 0, "GDM7243A": 1, "GDM7243ST": 2, "GDM7243i": 3}
+    item_order = {"OpenWrt v1.00": 0, "OpenWrt master": 1, "Linuxos master": 2, "Zephyros": 3}
+    model_cards = []
+    for model in sorted(groups, key=lambda name: (order.get(name, 99), name)):
+        items = sorted(groups[model], key=lambda item: (item_order.get(item[0], 99), item[0]))
+        model_cards.append(
+            "<div style='border:1px solid #d0d5dd;border-radius:10px;background:#f8fafc;margin-bottom:14px;padding:16px;'>"
+            "<div style='display:flex;align-items:center;justify-content:space-between;gap:12px;'>"
+            f"<div style='font-size:18px;font-weight:800;color:#101828;'>{escape(model)}</div>"
+            f"<div style='font-size:12px;font-weight:700;color:#475467;background:#ffffff;border:1px solid #e4e7ec;border-radius:999px;padding:4px 10px;'>{len(items)} items</div>"
+            "</div><div style='border-left:2px solid #d0d5dd;margin-top:12px;'>"
+            + "".join(card for _, card in items)
+            + "</div></div>"
+        )
+
+    return f"""<html><body style="margin:0;padding:24px;background:#f8fafc;font-family:'Segoe UI',Arial,sans-serif;color:#101828;">
+<div style="max-width:860px;margin:0 auto;">
+<div style="background:#0f172a;border-radius:16px;padding:24px 28px;color:#ffffff;margin-bottom:16px;">
+<div style="font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;opacity:0.88;">GCT-CS</div>
+<div style="font-size:28px;font-weight:800;margin-top:6px;">Daily build report</div>
+<div style="font-size:14px;opacity:0.9;margin-top:8px;">Generated from the CS-buildserver</div>
+</div>
+<div style="background:#ffffff;border:1px solid #eaecf0;border-radius:16px;padding:20px 20px 8px;margin-bottom:16px;">
+<div style="font-size:18px;font-weight:700;margin-bottom:14px;">{escape(subject.replace('GCT-CS Daily Build Report - ', ''))} - Build Test Summary</div>
+{''.join(model_cards) if model_cards else "<div style='color:#475467;'>No parsed sections found.</div>"}
+</div></div></body></html>"""
+
+
+def notify(args) -> int:
+    run_date = args.run_date or today()
+    env = merged_env(args.config, {"RUN_DATE": run_date})
+    if env.get("EMAIL_NOTI_ENABLED", "0") != "1":
+        print(f"[INFO] Daily mail notifier skipped: EMAIL_NOTI_ENABLED={env.get('EMAIL_NOTI_ENABLED')}")
+        return 0
+
+    status_file = daily_status_file(env, run_date)
+    if not status_file.exists():
+        print(f"[WARN] Daily mail notifier skipped: daily status file not found: {status_file}")
+        return 0
+
+    smtp_host = env.get("SMTP_HOST", "")
+    mail_from = env.get("MAIL_FROM") or env.get("SMTP_USER", "")
+    recipients = [addr.strip() for addr in env.get("MAIL_TO", "").split(",") if addr.strip()]
+    if not smtp_host or not mail_from or not recipients:
+        print("[WARN] Daily mail notifier skipped: SMTP_HOST, MAIL_FROM, or MAIL_TO is not set")
+        return 0
+
+    subject = env.get("REPORT_SUBJECT_PREFIX", "") + f" GCT-CS Daily Build Report - {dt.datetime.now().strftime('%m/%d/%Y')}"
+    subject = subject.strip()
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    from_name = env.get("MAIL_FROM_NAME", "").strip()
+    msg["From"] = f"{from_name} <{mail_from}>" if from_name else mail_from
+    msg["To"] = ", ".join(recipients)
+    if env.get("MAIL_REPLY_TO"):
+        msg["Reply-To"] = env["MAIL_REPLY_TO"]
+    msg.set_content("GCT-CS Daily Build Report\n\nPlease view the HTML email for the model-grouped build summary.")
+    msg.add_alternative(build_html(status_file, subject, run_date, env.get("SAMBA_UPLOAD_UNC_ROOT", "")), subtype="html")
+
+    ctx = ssl.create_default_context()
+    if env.get("SMTP_INSECURE_TLS", "0") == "1":
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+    with smtplib.SMTP(smtp_host, int(env.get("SMTP_PORT", "587")), timeout=30) as smtp:
+        smtp.ehlo()
+        if env.get("SMTP_USE_STARTTLS", "1") == "1":
+            smtp.starttls(context=ctx)
+            smtp.ehlo()
+        if env.get("SMTP_USER") or env.get("SMTP_PASSWORD"):
+            smtp.login(env.get("SMTP_USER", ""), env.get("SMTP_PASSWORD", ""))
+        smtp.send_message(msg)
+
+    sent_flag = Path(env.get("SENT_FLAG_FILE") or Path(env.get("AUTOBUILD_STATE_ROOT", "/home/jamesahn/gct_workspace/autobuild/state")) / f".daily_autobuild_mail_sent_{run_date}.flag")
+    sent_flag.parent.mkdir(parents=True, exist_ok=True)
+    sent_flag.write_text(f"sent_at={dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\nrun_date={run_date}\n", encoding="utf-8")
+    print(f"[INFO] Daily mail notifier sent to: {','.join(recipients)}")
+    return 0
