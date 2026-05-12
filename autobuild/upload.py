@@ -10,6 +10,7 @@ import tempfile
 from pathlib import Path
 
 from .config import daily_status_file, merged_env, today
+from .lock import LockDir, LockHeld
 from .status import generate_fw_build_info
 
 
@@ -133,6 +134,16 @@ def run(args) -> int:
     if getattr(args, "output_dir", None):
         overrides["SAMBA_UPLOAD_LOCAL_DIR"] = args.output_dir
     env = merged_env(args.config, overrides)
+    lock_dir = Path(env.get("UPLOAD_LOCK_DIR") or Path(env.get("AUTOBUILD_TMP_ROOT", "/home/jamesahn/gct_workspace/autobuild/tmp")) / f"daily_autobuild_upload_{run_date}.lock")
+    try:
+        with LockDir(lock_dir):
+            return _run_with_lock(args, env, run_date)
+    except LockHeld:
+        print("[INFO] Daily log upload skipped: another upload run is in progress")
+        return 0
+
+
+def _run_with_lock(args, env: dict[str, str], run_date: str) -> int:
     if env.get("SAMBA_UPLOAD_ENABLED", "1") != "1":
         print(f"[INFO] Daily log upload skipped: SAMBA_UPLOAD_ENABLED={env.get('SAMBA_UPLOAD_ENABLED')}")
         return 0
