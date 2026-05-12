@@ -41,6 +41,7 @@ def build_parser() -> argparse.ArgumentParser:
     notify.add_argument("--run-date", help="Run date in YYYYMMDD format")
     notify.add_argument("--config", default="config/autobuild_common.env")
     notify.add_argument("--status-file", help="Override daily status file path")
+    notify.add_argument("--min-run-ts", help="Require summary RUN_TS to be at least this value")
     notify.add_argument("--force", action="store_true", help="Send even when the sent flag already exists")
     notify.set_defaults(func=mail.notify)
 

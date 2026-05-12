@@ -10,7 +10,7 @@ from html import escape
 from pathlib import Path
 from types import SimpleNamespace
 
-from .config import daily_status_file, merged_env, today
+from .config import AutobuildPaths, daily_status_file, load_env_file, merged_env, today
 from .lock import LockDir, LockHeld
 from .status import parse_status_file
 from . import upload
@@ -113,6 +113,8 @@ def notify(args) -> int:
     overrides = {"RUN_DATE": run_date}
     if getattr(args, "status_file", None):
         overrides["DAILY_STATUS_FILE"] = args.status_file
+    if getattr(args, "min_run_ts", None):
+        overrides["MIN_RUN_TS"] = args.min_run_ts
     env = merged_env(args.config, overrides)
     lock_dir = Path(env.get("LOCK_DIR") or Path(env.get("AUTOBUILD_TMP_ROOT", "/home/jamesahn/gct_workspace/autobuild/tmp")) / f"daily_autobuild_mail_notifier_{run_date}.lock")
     try:
@@ -131,6 +133,9 @@ def _notify_with_lock(args, env: dict[str, str], run_date: str) -> int:
     status_file = daily_status_file(env, run_date)
     if not status_file.exists():
         print(f"[WARN] Daily mail notifier skipped: daily status file not found: {status_file}")
+        return 0
+
+    if not getattr(args, "status_file", None) and not summaries_ready_for_today(env, run_date):
         return 0
 
     sent_flag = Path(env.get("SENT_FLAG_FILE") or Path(env.get("AUTOBUILD_STATE_ROOT", "/home/jamesahn/gct_workspace/autobuild/state")) / f".daily_autobuild_mail_sent_{run_date}.flag")
@@ -184,3 +189,36 @@ def _notify_with_lock(args, env: dict[str, str], run_date: str) -> int:
     sent_flag.write_text(f"sent_at={dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\nrun_date={run_date}\n", encoding="utf-8")
     print(f"[INFO] Daily mail notifier sent to: {','.join(recipients)}")
     return 0
+
+
+SUMMARY_FILES = [
+    ("v1.00", "V100_SUMMARY_FILE", "openwrt/v1.00/latest_summary.env"),
+    ("master", "MASTER_SUMMARY_FILE", "openwrt/master/latest_summary.env"),
+    ("Zephyros", "ZEPHYROS_SUMMARY_FILE", "zephyros/latest_summary.env"),
+    ("GDM7275X Linuxos master", "GDM7275X_LINUXOS_SUMMARY_FILE", "linuxos/gdm7275x/latest_summary.env"),
+    ("GDM7243A uTKernel", "GDM7243A_UTKERNEL_SUMMARY_FILE", "uTKernel/gdm7243a/latest_summary.env"),
+    ("GDM7243ST uTKernel", "GDM7243ST_UTKERNEL_SUMMARY_FILE", "uTKernel/gdm7243st/latest_summary.env"),
+    ("GDM7243i zephyr-v2.3", "GDM7243I_ZEPHYR_SUMMARY_FILE", "zephyr_v2_3/gdm7243i/latest_summary.env"),
+]
+
+
+def summaries_ready_for_today(env: dict[str, str], run_date: str) -> bool:
+    log_root = AutobuildPaths.from_env(env).log_root
+    for label, env_key, rel_path in SUMMARY_FILES:
+        summary_file = Path(env.get(env_key) or log_root / rel_path)
+        if not summary_ready_for_today(summary_file, run_date, env.get("MIN_RUN_TS", "")):
+            print(f"[INFO] Daily mail notifier waiting: {label} summary is not ready for {run_date}")
+            return False
+    return True
+
+
+def summary_ready_for_today(summary_file: Path, run_date: str, min_run_ts: str = "") -> bool:
+    if not summary_file.exists():
+        return False
+    summary = load_env_file(summary_file)
+    run_ts = summary.get("RUN_TS", "")
+    if not run_ts or run_ts.split("_", 1)[0] != run_date:
+        return False
+    if min_run_ts and run_ts < min_run_ts:
+        return False
+    return bool(summary.get("BUILD_RESULT") and summary.get("BUILD_ENDED_AT"))
