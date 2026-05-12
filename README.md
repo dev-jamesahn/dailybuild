@@ -58,3 +58,9 @@ default paths therefore continue to point at:
 /home/jamesahn/gct-build-tools/autobuild
 /home/jamesahn/gct_workspace/autobuild
 ```
+
+## Tests
+
+```bash
+python3 -m unittest discover -s tests
+```
