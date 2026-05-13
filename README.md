@@ -156,9 +156,8 @@ Install cron entries:
 ./autobuild.py install-cron
 ```
 
-Note: the current generated cron schedule still starts at `00:00`. If the
-one-time test is stable, the next planned change is to move the daily test start
-time to `03:00`.
+The generated cron schedule starts daily build tests at `03:00`, then launches
+the remaining targets at one-minute intervals through `03:06`.
 
 ## Upload Output
 

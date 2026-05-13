@@ -59,13 +59,13 @@ CRON_TAGS = [
 
 def _daily_cron_jobs() -> list[tuple[str, str, str, str, str]]:
     return [
-        ("0 0 * * *", "run-openwrt", "openwrt_v1.00_autobuild.env", "openwrt/v1.00/cron_runner.log", "# OPENWRT_AUTOBUILD_V100"),
-        ("1 0 * * *", "run-openwrt", "openwrt_master_autobuild.env", "openwrt/master/cron_runner.log", "# OPENWRT_AUTOBUILD_MASTER"),
-        ("2 0 * * *", "run-os", "gdm7275x_linuxos_master_autobuild.env", "linuxos/gdm7275x/cron_runner.log", "# GDM7275X_LINUXOS_MASTER_AUTOBUILD"),
-        ("3 0 * * *", "run-zephyros", "zephyros_autobuild.env", "zephyros/cron_runner.log", "# ZEPHYROS_AUTOBUILD"),
-        ("4 0 * * *", "run-os", "gdm7243a_utkernel_autobuild.env", "uTKernel/gdm7243a/cron_runner.log", "# GDM7243A_UTKERNEL_AUTOBUILD"),
-        ("5 0 * * *", "run-os", "gdm7243st_utkernel_autobuild.env", "uTKernel/gdm7243st/cron_runner.log", "# GDM7243ST_UTKERNEL_AUTOBUILD"),
-        ("6 0 * * *", "run-os", "gdm7243i_zephyr_v2.3_autobuild.env", "zephyr_v2_3/gdm7243i/cron_runner.log", "# GDM7243I_ZEPHYR_V2_3_AUTOBUILD"),
+        ("0 3 * * *", "run-openwrt", "openwrt_v1.00_autobuild.env", "openwrt/v1.00/cron_runner.log", "# OPENWRT_AUTOBUILD_V100"),
+        ("1 3 * * *", "run-openwrt", "openwrt_master_autobuild.env", "openwrt/master/cron_runner.log", "# OPENWRT_AUTOBUILD_MASTER"),
+        ("2 3 * * *", "run-os", "gdm7275x_linuxos_master_autobuild.env", "linuxos/gdm7275x/cron_runner.log", "# GDM7275X_LINUXOS_MASTER_AUTOBUILD"),
+        ("3 3 * * *", "run-zephyros", "zephyros_autobuild.env", "zephyros/cron_runner.log", "# ZEPHYROS_AUTOBUILD"),
+        ("4 3 * * *", "run-os", "gdm7243a_utkernel_autobuild.env", "uTKernel/gdm7243a/cron_runner.log", "# GDM7243A_UTKERNEL_AUTOBUILD"),
+        ("5 3 * * *", "run-os", "gdm7243st_utkernel_autobuild.env", "uTKernel/gdm7243st/cron_runner.log", "# GDM7243ST_UTKERNEL_AUTOBUILD"),
+        ("6 3 * * *", "run-os", "gdm7243i_zephyr_v2.3_autobuild.env", "zephyr_v2_3/gdm7243i/cron_runner.log", "# GDM7243I_ZEPHYR_V2_3_AUTOBUILD"),
     ]
 
 
