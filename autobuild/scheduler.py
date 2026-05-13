@@ -177,7 +177,8 @@ def _test_once_plan() -> tuple[list[ScheduledCommand], Path]:
             SENT_FLAG_FILE=sent_flag,
             UPLOAD_FLAG_FILE=upload_flag,
         )
-        command = f"{env_prefix} {_q(entrypoint)} notify --run-date {_q(run_date)} --config {_q(config_root / 'autobuild_common.env')} --min-run-ts {_q(test_run_ts)} >> {_q(notifier_log)} 2>&1"
+        done_guard = f"if [ -f {_q(sent_flag)} ] && [ -f {_q(upload_flag)} ]; then exit 0; fi"
+        command = f"{done_guard}; {env_prefix} {_q(entrypoint)} notify --run-date {_q(run_date)} --config {_q(config_root / 'autobuild_common.env')} --min-run-ts {_q(test_run_ts)} >> {_q(notifier_log)} 2>&1"
         commands.append(ScheduledCommand(offset, f"Daily notifier attempt {idx + 1}/{notifier_repeat}", command))
     return commands, log_root / "notifier/one_time_daily_test_scheduler.log"
 

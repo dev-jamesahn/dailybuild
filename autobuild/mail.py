@@ -131,6 +131,13 @@ def _notify_with_lock(args, env: dict[str, str], run_date: str) -> int:
         print(f"[INFO] Daily mail notifier skipped: EMAIL_NOTI_ENABLED={env.get('EMAIL_NOTI_ENABLED')}")
         return 0
 
+    paths = AutobuildPaths.from_env(env)
+    sent_flag = Path(env.get("SENT_FLAG_FILE") or paths.state_root / f".daily_autobuild_mail_sent_{run_date}.flag")
+    upload_flag = Path(env.get("UPLOAD_FLAG_FILE") or paths.state_root / f".daily_autobuild_logs_uploaded_{run_date}.flag")
+    if sent_flag.exists() and not getattr(args, "force", False):
+        print(f"[INFO] Daily mail notifier skipped: already sent for RUN_DATE={run_date}")
+        return 0
+
     status_file = daily_status_file(env, run_date)
     if not status_file.exists():
         print(f"[WARN] Daily mail notifier skipped: daily status file not found: {status_file}")
@@ -139,9 +146,6 @@ def _notify_with_lock(args, env: dict[str, str], run_date: str) -> int:
     if not getattr(args, "status_file", None) and not summaries_ready_for_today(env, run_date):
         return 0
 
-    paths = AutobuildPaths.from_env(env)
-    sent_flag = Path(env.get("SENT_FLAG_FILE") or paths.state_root / f".daily_autobuild_mail_sent_{run_date}.flag")
-    upload_flag = Path(env.get("UPLOAD_FLAG_FILE") or paths.state_root / f".daily_autobuild_logs_uploaded_{run_date}.flag")
     if not upload_flag.exists():
         upload.run(SimpleNamespace(
             run_date=run_date,
@@ -150,10 +154,6 @@ def _notify_with_lock(args, env: dict[str, str], run_date: str) -> int:
             output_dir=None,
             force=False,
         ))
-
-    if sent_flag.exists() and not getattr(args, "force", False):
-        print(f"[INFO] Daily mail notifier skipped: already sent for RUN_DATE={run_date}")
-        return 0
 
     smtp_host = env.get("SMTP_HOST", "")
     mail_from = env.get("MAIL_FROM") or env.get("SMTP_USER", "")
