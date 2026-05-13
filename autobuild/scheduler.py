@@ -139,7 +139,7 @@ def _test_once_plan() -> tuple[list[ScheduledCommand], Path]:
     entrypoint = repo_root / "autobuild.py"
     log_root = paths.log_root
     state_root = paths.state_root
-    start_after = int(env.get("START_AFTER_MINUTES", "5"))
+    start_after = int(env.get("START_AFTER_MINUTES", "1"))
     notifier_start = int(env.get("NOTIFIER_START_AFTER_MINUTES", str(start_after + 10)))
     notifier_interval = int(env.get("NOTIFIER_INTERVAL_MINUTES", "10"))
     notifier_repeat = int(env.get("NOTIFIER_REPEAT_COUNT", "72"))

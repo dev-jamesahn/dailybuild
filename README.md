@@ -97,6 +97,9 @@ Run one-time daily test:
 ./autobuild.py test-once
 ```
 
+One-time build jobs start one minute after scheduling by default. Override with
+`START_AFTER_MINUTES` when a longer delay is needed.
+
 Preview one-time daily test schedule:
 
 ```bash
