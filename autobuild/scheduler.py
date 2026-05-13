@@ -69,6 +69,18 @@ def _daily_cron_jobs() -> list[tuple[str, str, str, str, str]]:
     ]
 
 
+def daily_build_log_specs() -> list[tuple[str, str]]:
+    return [
+        ("openwrt-v1.00", "openwrt/v1.00/cron_runner.log"),
+        ("openwrt-master", "openwrt/master/cron_runner.log"),
+        ("linuxos-gdm7275x", "linuxos/gdm7275x/cron_runner.log"),
+        ("zephyros", "zephyros/cron_runner.log"),
+        ("utkernel-gdm7243a", "uTKernel/gdm7243a/cron_runner.log"),
+        ("utkernel-gdm7243st", "uTKernel/gdm7243st/cron_runner.log"),
+        ("zephyr-v2.3-gdm7243i", "zephyr_v2_3/gdm7243i/cron_runner.log"),
+    ]
+
+
 def _daily_cron_lines() -> list[str]:
     env = merged_env(None)
     repo_root = Path(__file__).resolve().parents[1]

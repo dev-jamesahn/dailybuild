@@ -41,13 +41,7 @@ def _run_legacy(script_name: str, config_file: str, dry_run: bool = False) -> in
 
 
 def _lock_dir(env: dict[str, str], config_path: Path) -> Path:
-    target = (
-        env.get("TARGET_NAME")
-        or env.get("OPENWRT_BRANCH")
-        or env.get("ZEPHYROS_CONFIG_NAME")
-        or env.get("OS_BUILD_VARIANT")
-        or config_path.stem
-    )
+    target = config_path.stem
     lock_name = f"build_{safe_name(target)}.lock"
     return Path(env.get("BUILD_LOCK_DIR") or AutobuildPaths.from_env(env).tmp_root / lock_name)
 

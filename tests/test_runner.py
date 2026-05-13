@@ -1,0 +1,22 @@
+import tempfile
+import unittest
+from pathlib import Path
+
+from autobuild import runner
+
+
+class RunnerTests(unittest.TestCase):
+    def test_lock_dir_uses_config_stem_to_avoid_target_name_collisions(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            env = {
+                "AUTOBUILD_TMP_ROOT": str(Path(tmp) / "tmp"),
+                "TARGET_NAME": "GDM7275X",
+                "MODEL_LINEUP": "GDM7275X",
+            }
+            openwrt_lock = runner._lock_dir(env, Path("openwrt_v1.00_autobuild.env"))
+            linuxos_lock = runner._lock_dir(env, Path("gdm7275x_linuxos_master_autobuild.env"))
+
+        self.assertNotEqual(openwrt_lock, linuxos_lock)
+        self.assertEqual(openwrt_lock.name, "build_openwrt_v1.00_autobuild.lock")
+        self.assertEqual(linuxos_lock.name, "build_gdm7275x_linuxos_master_autobuild.lock")
+

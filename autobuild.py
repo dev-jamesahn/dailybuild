@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from autobuild import mail, runner, scheduler, status as status_mod, upload
+from autobuild import logtail, mail, runner, scheduler, status as status_mod, upload
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -57,6 +57,13 @@ def build_parser() -> argparse.ArgumentParser:
     test_once = sub.add_parser("test-once", help="Schedule a one-time full daily test")
     test_once.add_argument("--dry-run", action="store_true")
     test_once.set_defaults(func=scheduler.test_once)
+
+    tail_logs = sub.add_parser("tail-logs", help="Follow all daily build cron logs with target prefixes")
+    tail_logs.add_argument("--config", default="config/autobuild_common.env")
+    tail_logs.add_argument("--lines", type=int, default=20, help="Initial lines to print per existing log")
+    tail_logs.add_argument("--interval", type=float, default=1.0, help="Polling interval in seconds")
+    tail_logs.add_argument("--no-follow", action="store_true", help="Print current log tails and exit")
+    tail_logs.set_defaults(func=logtail.tail_logs)
 
     return parser
 
