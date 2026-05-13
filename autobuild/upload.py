@@ -9,7 +9,7 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from .config import daily_status_file, merged_env, today
+from .config import AutobuildPaths, daily_status_file, merged_env, today
 from .lock import LockDir, LockHeld
 from .status import generate_fw_build_info
 
@@ -134,7 +134,8 @@ def run(args) -> int:
     if getattr(args, "output_dir", None):
         overrides["SAMBA_UPLOAD_LOCAL_DIR"] = args.output_dir
     env = merged_env(args.config, overrides)
-    lock_dir = Path(env.get("UPLOAD_LOCK_DIR") or Path(env.get("AUTOBUILD_TMP_ROOT", "/home/jamesahn/gct_workspace/autobuild/tmp")) / f"daily_autobuild_upload_{run_date}.lock")
+    paths = AutobuildPaths.from_env(env)
+    lock_dir = Path(env.get("UPLOAD_LOCK_DIR") or paths.tmp_root / f"daily_autobuild_upload_{run_date}.lock")
     try:
         with LockDir(lock_dir):
             return _run_with_lock(args, env, run_date)
@@ -153,7 +154,8 @@ def _run_with_lock(args, env: dict[str, str], run_date: str) -> int:
         print(f"[WARN] Daily log upload skipped: daily status file not found: {status_file}")
         return 0
 
-    flag = Path(env.get("UPLOAD_FLAG_FILE") or Path(env.get("AUTOBUILD_STATE_ROOT", "/home/jamesahn/gct_workspace/autobuild/state")) / f".daily_autobuild_logs_uploaded_{run_date}.flag")
+    paths = AutobuildPaths.from_env(env)
+    flag = Path(env.get("UPLOAD_FLAG_FILE") or paths.state_root / f".daily_autobuild_logs_uploaded_{run_date}.flag")
     if flag.exists() and not getattr(args, "force", False):
         print(f"[INFO] Daily log upload skipped: already uploaded for RUN_DATE={run_date}")
         return 0
@@ -191,7 +193,6 @@ def _run_with_lock(args, env: dict[str, str], run_date: str) -> int:
             manifest.append(f"{log_dir} -> {rel_dir}")
             _copy_artifacts(log_dir, package_dir, manifest)
 
-        (package_dir / "upload_manifest.txt").write_text("\n".join(manifest) + "\n", encoding="utf-8")
         target_dir = Path(upload_root) / run_date
         _replace_dir_contents(package_dir, target_dir)
 

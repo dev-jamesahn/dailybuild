@@ -67,8 +67,10 @@ def generate_fw_build_info(status_file: str | Path) -> str:
         lines.append(f"[{model}]")
         lines.append("")
         for title, key in entries:
-            lines.append(f"  - {title}")
-            git_lines = sections.get(key).git_log if key in sections else []
+            section = sections.get(key)
+            result = _fw_build_result(section)
+            lines.append(f"  - {title} : {result}")
+            git_lines = section.git_log if section else []
             if git_lines:
                 lines.extend(f"    {line}" for line in git_lines)
             else:
@@ -78,9 +80,24 @@ def generate_fw_build_info(status_file: str | Path) -> str:
                     "    date   : N/A",
                     "    subject: N/A",
                 ])
+            failure_analysis = section.fields.get("Failure analysis", "") if section else ""
+            if result == "FAIL" and failure_analysis:
+                lines.append(f"    Failure analysis : {failure_analysis}")
+            lines.append("")
         lines.append("")
 
     return "\n".join(lines).rstrip() + "\n"
+
+
+def _fw_build_result(section: StatusSection | None) -> str:
+    if section is None:
+        return "N/A"
+    result = section.fields.get("Result") or section.fields.get("Status") or "UNKNOWN"
+    if result == "SUCCESS":
+        return "PASS"
+    if result == "FAIL":
+        return "FAIL"
+    return result
 
 
 DEFAULT_SUMMARY_FILES = [

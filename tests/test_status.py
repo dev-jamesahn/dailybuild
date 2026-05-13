@@ -37,11 +37,21 @@ class StatusTests(unittest.TestCase):
             status_file.write_text(
                 "\n".join([
                     "[GDM7275X OpenWrt v1.00]",
+                    "Result      : SUCCESS",
                     "Git log     :",
                     "  commit : abc123",
                     "  author : dev-jamesahn <ahw1103@gmail.com>",
                     "  date   : 2026-05-13T00:00:00+09:00",
                     "  subject: sample",
+                    "",
+                    "[GDM7275X OpenWrt master]",
+                    "Result      : FAIL",
+                    "Failure analysis: sample failure",
+                    "Git log     :",
+                    "  commit : def456",
+                    "  author : Dean Ahn <deanahn@gctsemi.com>",
+                    "  date   : 2026-05-13T01:00:00+09:00",
+                    "  subject: broken sample",
                     "",
                 ]),
                 encoding="utf-8",
@@ -50,9 +60,11 @@ class StatusTests(unittest.TestCase):
             fw_info = generate_fw_build_info(status_file)
 
         self.assertIn("[GDM7275X]", fw_info)
-        self.assertIn("  - OpenWRT v1.00", fw_info)
+        self.assertIn("  - OpenWRT v1.00 : PASS", fw_info)
         self.assertIn("    commit : abc123", fw_info)
-        self.assertIn("  - OpenWRT master", fw_info)
+        self.assertIn("  - OpenWRT master : FAIL", fw_info)
+        self.assertIn("    Failure analysis : sample failure", fw_info)
+        self.assertIn("  - Linuxos master : N/A", fw_info)
         self.assertIn("    commit : N/A", fw_info)
 
     def test_format_target_status_from_summary(self):

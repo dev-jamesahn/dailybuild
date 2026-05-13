@@ -50,13 +50,15 @@ The migration keeps build execution and cron installation compatible with the
 existing shell scripts through `LEGACY_AUTOBUILD_DIR` while upload, mail, and
 status parsing move into Python first.
 
-This repository is intended to run under the `jamesahn` account and reuse the
-existing autobuild checkout, repo workspace, logs, and state directories. The
-default paths therefore continue to point at:
+This repository is intended to run under the `jamesahn` account while keeping
+the Python dailybuild workspace separate from the legacy shell daily build
+workspace. Build execution still calls the existing shell wrappers through
+`LEGACY_AUTOBUILD_DIR`, but repos, logs, tmp files, and state files are rooted
+under:
 
 ```text
 /home/jamesahn/gct-build-tools/autobuild
-/home/jamesahn/gct_workspace/autobuild
+/home/jamesahn/gct_workspace/dailybuild
 ```
 
 ## Tests

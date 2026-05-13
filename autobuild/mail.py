@@ -116,7 +116,8 @@ def notify(args) -> int:
     if getattr(args, "min_run_ts", None):
         overrides["MIN_RUN_TS"] = args.min_run_ts
     env = merged_env(args.config, overrides)
-    lock_dir = Path(env.get("LOCK_DIR") or Path(env.get("AUTOBUILD_TMP_ROOT", "/home/jamesahn/gct_workspace/autobuild/tmp")) / f"daily_autobuild_mail_notifier_{run_date}.lock")
+    paths = AutobuildPaths.from_env(env)
+    lock_dir = Path(env.get("LOCK_DIR") or paths.tmp_root / f"daily_autobuild_mail_notifier_{run_date}.lock")
     try:
         with LockDir(lock_dir):
             return _notify_with_lock(args, env, run_date)
@@ -138,8 +139,9 @@ def _notify_with_lock(args, env: dict[str, str], run_date: str) -> int:
     if not getattr(args, "status_file", None) and not summaries_ready_for_today(env, run_date):
         return 0
 
-    sent_flag = Path(env.get("SENT_FLAG_FILE") or Path(env.get("AUTOBUILD_STATE_ROOT", "/home/jamesahn/gct_workspace/autobuild/state")) / f".daily_autobuild_mail_sent_{run_date}.flag")
-    upload_flag = Path(env.get("UPLOAD_FLAG_FILE") or Path(env.get("AUTOBUILD_STATE_ROOT", "/home/jamesahn/gct_workspace/autobuild/state")) / f".daily_autobuild_logs_uploaded_{run_date}.flag")
+    paths = AutobuildPaths.from_env(env)
+    sent_flag = Path(env.get("SENT_FLAG_FILE") or paths.state_root / f".daily_autobuild_mail_sent_{run_date}.flag")
+    upload_flag = Path(env.get("UPLOAD_FLAG_FILE") or paths.state_root / f".daily_autobuild_logs_uploaded_{run_date}.flag")
     if not upload_flag.exists():
         upload.run(SimpleNamespace(
             run_date=run_date,

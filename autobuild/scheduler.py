@@ -82,10 +82,10 @@ def daily_build_log_specs() -> list[tuple[str, str]]:
 
 
 def _daily_cron_lines() -> list[str]:
-    env = merged_env(None)
     repo_root = Path(__file__).resolve().parents[1]
+    config_root = _config_root(repo_root)
+    env = merged_env(config_root / "autobuild_common.env")
     entrypoint = repo_root / "autobuild.py"
-    config_root = Path(env.get("AUTOBUILD_CONFIG_ROOT", repo_root / "config"))
     log_root = AutobuildPaths.from_env(env).log_root
     lines = []
     for schedule, subcommand, config_name, log_rel, tag in _daily_cron_jobs():
@@ -100,9 +100,9 @@ def _daily_cron_lines() -> list[str]:
 
 
 def _validate_daily_cron_inputs() -> None:
-    env = merged_env(None)
     repo_root = Path(__file__).resolve().parents[1]
-    config_root = Path(env.get("AUTOBUILD_CONFIG_ROOT", repo_root / "config"))
+    config_root = _config_root(repo_root)
+    env = merged_env(config_root / "autobuild_common.env")
     required = [config_root / "autobuild_common.env"]
     required.extend(config_root / job[2] for job in _daily_cron_jobs())
     missing = [str(path) for path in required if not path.is_file()]
@@ -128,11 +128,11 @@ def _install_crontab(lines: list[str]) -> None:
 
 
 def _test_once_plan() -> tuple[list[ScheduledCommand], Path]:
-    env = merged_env(None)
-    paths = AutobuildPaths.from_env(env)
     repo_root = Path(__file__).resolve().parents[1]
+    config_root = _config_root(repo_root)
+    env = merged_env(config_root / "autobuild_common.env")
+    paths = AutobuildPaths.from_env(env)
     entrypoint = repo_root / "autobuild.py"
-    config_root = Path(env.get("AUTOBUILD_CONFIG_ROOT", repo_root / "config"))
     log_root = paths.log_root
     state_root = paths.state_root
     start_after = int(env.get("START_AFTER_MINUTES", "5"))
@@ -214,3 +214,7 @@ def _schedule(commands: list[ScheduledCommand], scheduler_log: Path, dry_run: bo
 def test_once(args) -> int:
     commands, scheduler_log = _test_once_plan()
     return _schedule(commands, scheduler_log, getattr(args, "dry_run", False))
+
+
+def _config_root(repo_root: Path) -> Path:
+    return Path(os.environ.get("AUTOBUILD_CONFIG_ROOT", repo_root / "config")).expanduser()
