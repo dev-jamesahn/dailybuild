@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from autobuild import mail, runner, scheduler, upload
+from autobuild import mail, runner, scheduler, status as status_mod, upload
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -47,6 +47,12 @@ def build_parser() -> argparse.ArgumentParser:
     notify.add_argument("--min-run-ts", help="Require summary RUN_TS to be at least this value")
     notify.add_argument("--force", action="store_true", help="Send even when the sent flag already exists")
     notify.set_defaults(func=mail.notify)
+
+    status = sub.add_parser("status", help="Generate a daily status file from latest summaries")
+    status.add_argument("--run-date", help="Run date in YYYYMMDD format")
+    status.add_argument("--config", default="config/autobuild_common.env")
+    status.add_argument("--output", help="Override output status file")
+    status.set_defaults(func=status_mod.write_daily_status_command)
 
     test_once = sub.add_parser("test-once", help="Schedule a one-time full daily test")
     test_once.add_argument("--dry-run", action="store_true")

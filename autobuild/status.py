@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import datetime as dt
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from .config import AutobuildPaths, daily_status_file, load_env_file, merged_env, today
 
 
 @dataclass
@@ -78,3 +81,123 @@ def generate_fw_build_info(status_file: str | Path) -> str:
         lines.append("")
 
     return "\n".join(lines).rstrip() + "\n"
+
+
+DEFAULT_SUMMARY_FILES = [
+    ("OpenWrt v1.00", "openwrt/v1.00/latest_summary.env"),
+    ("OpenWrt master", "openwrt/master/latest_summary.env"),
+    ("Zephyros", "zephyros/latest_summary.env"),
+]
+
+
+def format_target_status(label: str, summary_path: str | Path, not_run_if_missing: bool = False) -> str:
+    summary_file = Path(summary_path)
+    if not summary_file.exists():
+        if not_run_if_missing:
+            return f"[{label}]\nStatus       : NOT_RUN\n\n"
+        return ""
+
+    summary = load_env_file(summary_file)
+    target_name = summary.get("TARGET_NAME") or label
+    lines = [
+        f"[{target_name}]",
+        f"Result       : {summary.get('BUILD_RESULT', 'UNKNOWN')}",
+        f"Current stage: {summary.get('CURRENT_STAGE', '')}",
+        f"Started      : {summary.get('BUILD_STARTED_AT', '')}",
+        f"Ended        : {summary.get('BUILD_ENDED_AT', '')}",
+        f"Duration     : {summary.get('BUILD_DURATION_FMT', '')}",
+        f"Run ts       : {summary.get('RUN_TS', '')}",
+        f"Log path     : {summary.get('BUILD_LOG', '')}",
+    ]
+    if summary.get("FAIL_REASON"):
+        lines.append(f"Fail reason  : {summary['FAIL_REASON']}")
+    if summary.get("FAILURE_ANALYSIS"):
+        lines.append(f"Failure analysis: {summary['FAILURE_ANALYSIS']}")
+    if summary.get("MAIN_REPO_LAST_COMMIT") or summary.get("MAIN_REPO_LAST_SUBJECT"):
+        lines.extend([
+            "Git log      :",
+            f"  commit : {summary.get('MAIN_REPO_LAST_COMMIT', '')}",
+            f"  author : {summary.get('MAIN_REPO_LAST_AUTHOR', '')}",
+            f"  date   : {summary.get('MAIN_REPO_LAST_DATE', '')}",
+            f"  subject: {summary.get('MAIN_REPO_LAST_SUBJECT', '')}",
+        ])
+    manifest = _manifest_hashes(summary)
+    if manifest and "Zephyros" not in target_name:
+        lines.extend([
+            "Manifest hashes:",
+            f"  GDM   : {manifest.get('GDM', '')}",
+            f"  SBL   : {manifest.get('SBL', '')}",
+            f"  UBOOT : {manifest.get('UBOOT', '')}",
+        ])
+    return "\n".join(lines) + "\n\n"
+
+
+def generate_daily_status(log_root: str | Path, generated_at: dt.datetime | None = None) -> str:
+    root = Path(log_root)
+    generated_at = generated_at or dt.datetime.now()
+    chunks = [
+        "==========================================",
+        "Daily Autobuild Status",
+        f"Generated at : {generated_at.strftime('%Y-%m-%d %H:%M:%S')}",
+        "==========================================",
+        "",
+    ]
+    body = "\n".join(chunks) + "\n"
+    for label, rel_path in DEFAULT_SUMMARY_FILES:
+        body += format_target_status(label, root / rel_path, not_run_if_missing=True)
+    for summary_file in discover_os_summary_files(root):
+        body += format_target_status("OS Autobuild", summary_file)
+    return body
+
+
+def discover_os_summary_files(log_root: str | Path) -> list[Path]:
+    root = Path(log_root)
+    if not root.exists():
+        return []
+    skipped_parts = {"openwrt", "zephyros"}
+    results = []
+    for path in sorted(root.glob("*/*/latest_summary.env")):
+        rel_parts = set(path.relative_to(root).parts)
+        if rel_parts & skipped_parts:
+            continue
+        results.append(path)
+    return results
+
+
+def write_daily_status_command(args) -> int:
+    run_date = args.run_date or today()
+    overrides = {"RUN_DATE": run_date}
+    if getattr(args, "output", None):
+        overrides["DAILY_STATUS_FILE"] = args.output
+    env = merged_env(args.config, overrides)
+    paths = AutobuildPaths.from_env(env)
+    output = Path(args.output) if getattr(args, "output", None) else daily_status_file(env, run_date)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(generate_daily_status(paths.log_root), encoding="utf-8")
+    print(f"[INFO] Daily status file generated: {output}")
+    return 0
+
+
+def _manifest_hashes(summary: dict[str, str]) -> dict[str, str]:
+    values = {
+        "GDM": summary.get("MANIFEST_GDM_COMMIT", ""),
+        "SBL": summary.get("MANIFEST_SBL_COMMIT", ""),
+        "UBOOT": summary.get("MANIFEST_UBOOT_COMMIT", ""),
+    }
+    hash_log = summary.get("HASH_LOG")
+    if hash_log:
+        for key, parsed in _read_hash_log(hash_log).items():
+            values[key] = values.get(key) or parsed
+    return {key: value for key, value in values.items() if value}
+
+
+def _read_hash_log(path: str | Path) -> dict[str, str]:
+    hash_file = Path(path)
+    if not hash_file.exists():
+        return {}
+    values: dict[str, str] = {}
+    for line in hash_file.read_text(encoding="utf-8").splitlines():
+        parts = line.split("|")
+        if len(parts) >= 3 and parts[0] in {"GDM", "SBL", "UBOOT"}:
+            values.setdefault(parts[0], parts[2])
+    return values
