@@ -14,7 +14,7 @@ from .config import AutobuildPaths, daily_status_file, load_env_file, merged_env
 from .lock import LockDir, LockHeld
 from .status import parse_status_file
 from . import upload
-from .upload import safe_name
+from .upload import safe_name, upload_subdir
 
 
 def _split_model_item(section_name: str) -> tuple[str, str]:
@@ -45,7 +45,15 @@ def _upload_dir_name(section_name: str, item_name: str) -> str:
     return safe_name(section_name)
 
 
-def build_html(status_file: Path, subject: str, run_date: str, samba_unc_root: str) -> str:
+def _unc_join(root: str, subdir: Path, rel_path: str) -> str:
+    pieces = [root.rstrip("\\")]
+    pieces.extend(subdir.parts)
+    pieces.extend(part for part in rel_path.split("\\") if part)
+    return "\\".join(pieces)
+
+
+def build_html(status_file: Path, subject: str, run_date: str, samba_unc_root: str, upload_target_subdir: Path | None = None) -> str:
+    upload_target_subdir = upload_target_subdir or Path(run_date)
     groups: dict[str, list[tuple[str, str]]] = {}
     for section in parse_status_file(status_file):
         model, item = _split_model_item(section.name)
@@ -55,8 +63,9 @@ def build_html(status_file: Path, subject: str, run_date: str, samba_unc_root: s
         status_color = "#177245" if result == "SUCCESS" else "#b42318" if result == "FAIL" else "#475467"
         status_bg = "#ecfdf3" if result == "SUCCESS" else "#fef3f2" if result == "FAIL" else "#f2f4f7"
         upload_root = samba_unc_root.rstrip("\\")
-        log_path = f"{upload_root}\\{run_date}\\{_upload_dir_name(section.name, item)}\\Log" if upload_root else ""
-        image_path = f"{upload_root}\\{run_date}\\{_upload_dir_name(section.name, item)}\\Image" if upload_root and result == "SUCCESS" else ""
+        rel_upload_dir = _upload_dir_name(section.name, item)
+        log_path = _unc_join(upload_root, upload_target_subdir, f"{rel_upload_dir}\\Log") if upload_root else ""
+        image_path = _unc_join(upload_root, upload_target_subdir, f"{rel_upload_dir}\\Image") if upload_root and result == "SUCCESS" else ""
         git_block = "\n".join(escape(line) for line in section.git_log)
         details = []
         if duration:
@@ -152,6 +161,7 @@ def _notify_with_lock(args, env: dict[str, str], run_date: str) -> int:
             config=getattr(args, "config", "config/autobuild_common.env"),
             status_file=getattr(args, "status_file", None),
             output_dir=None,
+            upload_subdir=env.get("SAMBA_UPLOAD_SUBDIR"),
             force=False,
         ))
 
@@ -172,7 +182,7 @@ def _notify_with_lock(args, env: dict[str, str], run_date: str) -> int:
     if env.get("MAIL_REPLY_TO"):
         msg["Reply-To"] = env["MAIL_REPLY_TO"]
     msg.set_content("GCT-CS Daily Build Report\n\nPlease view the HTML email for the model-grouped build summary.")
-    msg.add_alternative(build_html(status_file, subject, run_date, env.get("SAMBA_UPLOAD_UNC_ROOT", "")), subtype="html")
+    msg.add_alternative(build_html(status_file, subject, run_date, env.get("SAMBA_UPLOAD_UNC_ROOT", ""), upload_subdir(env, run_date)), subtype="html")
 
     ctx = ssl.create_default_context()
     if env.get("SMTP_INSECURE_TLS", "0") == "1":

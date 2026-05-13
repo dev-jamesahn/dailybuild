@@ -103,6 +103,11 @@ Preview one-time daily test schedule:
 ./autobuild.py test-once --dry-run
 ```
 
+One-time tests stop scheduling notifier retries after 180 minutes by default.
+Every scheduled one-time command also has an expiry guard, so delayed commands
+exit without upload or mail after the timeout. Override with
+`TEST_ONCE_MAX_RUNTIME_MINUTES` when needed.
+
 View all build logs together:
 
 ```bash
@@ -165,6 +170,13 @@ Samba upload target:
 
 ```text
 K:\ENG\ENG05\CS_team\James\<YYYYMMDD>
+```
+
+One-time test uploads are separated from the daily folder to avoid overwriting
+daily results or another one-time run from the same date:
+
+```text
+K:\ENG\ENG05\CS_team\James\Test\<YYYYMMDD_HHMMSS>
 ```
 
 The upload package includes `FW_build_info_<YYYYMMDD>.txt` and model-grouped

@@ -2,7 +2,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from autobuild.mail import summary_ready_for_today
+from autobuild.mail import build_html, summary_ready_for_today
 
 
 class MailTests(unittest.TestCase):
@@ -28,6 +28,22 @@ class MailTests(unittest.TestCase):
             summary.write_text("RUN_TS=20260513_010000\n", encoding="utf-8")
 
             self.assertFalse(summary_ready_for_today(summary, "20260513"))
+
+    def test_build_html_uses_upload_subdir_for_samba_paths(self):
+        with TemporaryDirectory() as tmp:
+            status = Path(tmp) / "status.txt"
+            status.write_text(
+                "\n".join([
+                    "[GDM7275X Linuxos master]",
+                    "Result       : SUCCESS",
+                    "Duration     : 00:01:00",
+                ]),
+                encoding="utf-8",
+            )
+
+            html = build_html(status, "[TestPy] Report", "20260513", r"K:\ENG\ENG05\CS_team\James", Path("Test/20260513_145122"))
+
+        self.assertIn(r"K:\ENG\ENG05\CS_team\James\Test\20260513_145122\GDM7275X\linuxos_master\Log", html)
 
 
 if __name__ == "__main__":

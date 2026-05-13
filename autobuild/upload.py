@@ -19,6 +19,12 @@ def safe_name(value: str) -> str:
     return safe or "unknown"
 
 
+def upload_subdir(env: dict[str, str], run_date: str) -> Path:
+    raw = env.get("SAMBA_UPLOAD_SUBDIR") or run_date
+    parts = [part for part in re.split(r"[\\/]+", raw.strip()) if part and part not in {".", ".."}]
+    return Path(*parts) if parts else Path(run_date)
+
+
 def upload_dir_name(target_name: str, openwrt_branch: str = "", os_project_name: str = "", os_build_variant: str = "", zephyros_config_name: str = "") -> str:
     if openwrt_branch:
         if openwrt_branch == "v1.00":
@@ -133,6 +139,8 @@ def run(args) -> int:
         overrides["DAILY_STATUS_FILE"] = args.status_file
     if getattr(args, "output_dir", None):
         overrides["SAMBA_UPLOAD_LOCAL_DIR"] = args.output_dir
+    if getattr(args, "upload_subdir", None):
+        overrides["SAMBA_UPLOAD_SUBDIR"] = args.upload_subdir
     env = merged_env(args.config, overrides)
     paths = AutobuildPaths.from_env(env)
     lock_dir = Path(env.get("UPLOAD_LOCK_DIR") or paths.tmp_root / f"daily_autobuild_upload_{run_date}.lock")
@@ -165,7 +173,7 @@ def _run_with_lock(args, env: dict[str, str], run_date: str) -> int:
         raise SystemExit("SAMBA_UPLOAD_LOCAL_DIR is required in the Python uploader for now")
 
     with tempfile.TemporaryDirectory(prefix="daily_autobuild_upload.") as tmp:
-        package_dir = Path(tmp) / run_date
+        package_dir = Path(tmp) / upload_subdir(env, run_date).name
         package_dir.mkdir(parents=True)
         manifest = [
             f"run_date={run_date}",
@@ -193,7 +201,7 @@ def _run_with_lock(args, env: dict[str, str], run_date: str) -> int:
             manifest.append(f"{log_dir} -> {rel_dir}")
             _copy_artifacts(log_dir, package_dir, manifest)
 
-        target_dir = Path(upload_root) / run_date
+        target_dir = Path(upload_root) / upload_subdir(env, run_date)
         _replace_dir_contents(package_dir, target_dir)
 
     flag.parent.mkdir(parents=True, exist_ok=True)

@@ -44,6 +44,10 @@ def _shell_env(**values: str | Path) -> str:
     return " ".join(f"{key}={_q(value)}" for key, value in values.items() if value is not None)
 
 
+def _expiry_guard(deadline_epoch: int, test_run_ts: str) -> str:
+    return f"if [ $(date +%s) -gt {deadline_epoch} ]; then echo '[INFO] One-time daily test expired: {test_run_ts}'; exit 0; fi"
+
+
 CRON_TAGS = [
     "OPENWRT_V100_AUTOBUILD",
     "OPENWRT_AUTOBUILD_V100",
@@ -139,6 +143,8 @@ def _test_once_plan() -> tuple[list[ScheduledCommand], Path]:
     notifier_start = int(env.get("NOTIFIER_START_AFTER_MINUTES", str(start_after + 10)))
     notifier_interval = int(env.get("NOTIFIER_INTERVAL_MINUTES", "10"))
     notifier_repeat = int(env.get("NOTIFIER_REPEAT_COUNT", "72"))
+    max_runtime_minutes = int(env.get("TEST_ONCE_MAX_RUNTIME_MINUTES", "180"))
+    deadline_epoch = int((dt.datetime.now() + dt.timedelta(minutes=max_runtime_minutes)).timestamp())
     test_run_ts = env.get("TEST_RUN_TS", dt.datetime.now().strftime("%Y%m%d_%H%M%S"))
     run_date = env.get("RUN_DATE", test_run_ts.split("_", 1)[0])
     subject_prefix = env.get("TEST_REPORT_SUBJECT_PREFIX", "[TestPy]")
@@ -146,6 +152,7 @@ def _test_once_plan() -> tuple[list[ScheduledCommand], Path]:
     status_file = state_root / f"one_time_daily_autobuild_status_{test_run_ts}.txt"
     sent_flag = state_root / f".one_time_daily_autobuild_mail_sent_{test_run_ts}.flag"
     upload_flag = state_root / f".one_time_daily_autobuild_logs_uploaded_{test_run_ts}.flag"
+    upload_subdir = f"Test/{test_run_ts}"
 
     build_jobs = [
         (0, "GDM7275X OpenWrt v1.00", "run-openwrt", config_root / "openwrt_v1.00_autobuild.env", log_root / "openwrt/v1.00/cron_runner.log"),
@@ -158,16 +165,19 @@ def _test_once_plan() -> tuple[list[ScheduledCommand], Path]:
     ]
     state_root.mkdir(parents=True, exist_ok=True)
     commands: list[ScheduledCommand] = []
+    expiry_guard = _expiry_guard(deadline_epoch, test_run_ts)
     for offset, label, subcommand, config, log_file in build_jobs:
         log_file.parent.mkdir(parents=True, exist_ok=True)
         env_prefix = _shell_env(DAILY_STATUS_FILE=status_file)
-        command = f"{env_prefix} {_q(entrypoint)} {subcommand} --config {_q(config)} >> {_q(log_file)} 2>&1"
+        command = f"{expiry_guard}; {env_prefix} {_q(entrypoint)} {subcommand} --config {_q(config)} >> {_q(log_file)} 2>&1"
         commands.append(ScheduledCommand(start_after + offset, label, command))
 
     notifier_log = log_root / "notifier/daily_autobuild_mail_notifier.log"
     notifier_log.parent.mkdir(parents=True, exist_ok=True)
     for idx in range(notifier_repeat):
         offset = notifier_start + idx * notifier_interval
+        if offset > max_runtime_minutes:
+            break
         env_prefix = _shell_env(
             RUN_DATE=run_date,
             MIN_RUN_TS=test_run_ts,
@@ -176,9 +186,10 @@ def _test_once_plan() -> tuple[list[ScheduledCommand], Path]:
             REPORT_SUBJECT_PREFIX=subject_prefix,
             SENT_FLAG_FILE=sent_flag,
             UPLOAD_FLAG_FILE=upload_flag,
+            SAMBA_UPLOAD_SUBDIR=upload_subdir,
         )
         done_guard = f"if [ -f {_q(sent_flag)} ] && [ -f {_q(upload_flag)} ]; then exit 0; fi"
-        command = f"{done_guard}; {env_prefix} {_q(entrypoint)} notify --run-date {_q(run_date)} --config {_q(config_root / 'autobuild_common.env')} --min-run-ts {_q(test_run_ts)} >> {_q(notifier_log)} 2>&1"
+        command = f"{expiry_guard}; {done_guard}; {env_prefix} {_q(entrypoint)} notify --run-date {_q(run_date)} --config {_q(config_root / 'autobuild_common.env')} --min-run-ts {_q(test_run_ts)} >> {_q(notifier_log)} 2>&1"
         commands.append(ScheduledCommand(offset, f"Daily notifier attempt {idx + 1}/{notifier_repeat}", command))
     return commands, log_root / "notifier/one_time_daily_test_scheduler.log"
 
