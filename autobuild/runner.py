@@ -30,11 +30,11 @@ def _run_legacy(script_name: str, config_file: str, dry_run: bool = False) -> in
     lock_dir = _lock_dir(env, config_path)
     if dry_run:
         print(f"LOCK_DIR={_q(lock_dir)}")
-        print(f"CONFIG_FILE={_q(config_path)} {_q(script)}")
+        print(f"CONFIG_FILE={_q(config_path)} /bin/bash -lc {_q(str(script))}")
         return 0
     try:
         with LockDir(lock_dir):
-            return subprocess.call([str(script)], env=env)
+            return subprocess.call(["/bin/bash", "-lc", str(script)], env=env)
     except LockHeld:
         print(f"[INFO] Build skipped: another run is in progress for {config_path}")
         return 0
