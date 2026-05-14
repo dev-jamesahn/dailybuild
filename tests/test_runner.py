@@ -35,14 +35,17 @@ class RunnerTests(unittest.TestCase):
                 "\n".join([
                     f"LEGACY_AUTOBUILD_DIR='{legacy}'",
                     f"AUTOBUILD_TMP_ROOT='{root / 'tmp'}'",
+                    "PKG_VERSION=0.0.0",
                 ]),
                 encoding="utf-8",
             )
 
-            with mock.patch("autobuild.runner.subprocess.call", return_value=0) as call:
-                rc = runner.run_openwrt(SimpleNamespace(config=str(config), dry_run=False))
+            with mock.patch.dict("os.environ", {}, clear=True):
+                with mock.patch("autobuild.runner.subprocess.call", return_value=0) as call:
+                    rc = runner.run_openwrt(SimpleNamespace(config=str(config), dry_run=False))
 
         self.assertEqual(rc, 0)
         call.assert_called_once()
         self.assertEqual(call.call_args.args[0], ["/bin/bash", "-lc", str(script)])
         self.assertEqual(call.call_args.kwargs["env"]["CONFIG_FILE"], str(config))
+        self.assertNotIn("PKG_VERSION", call.call_args.kwargs["env"])

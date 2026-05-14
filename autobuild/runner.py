@@ -5,6 +5,7 @@ The shell build wrappers stay callable while each target is converted to Python.
 
 from __future__ import annotations
 
+import os
 import shlex
 import subprocess
 from pathlib import Path
@@ -28,13 +29,15 @@ def _run_legacy(script_name: str, config_file: str, dry_run: bool = False) -> in
     if not script.exists():
         raise SystemExit(f"Missing legacy script: {script}")
     lock_dir = _lock_dir(env, config_path)
+    subprocess_env = dict(os.environ)
+    subprocess_env["CONFIG_FILE"] = str(config_path)
     if dry_run:
         print(f"LOCK_DIR={_q(lock_dir)}")
         print(f"CONFIG_FILE={_q(config_path)} /bin/bash -lc {_q(str(script))}")
         return 0
     try:
         with LockDir(lock_dir):
-            return subprocess.call(["/bin/bash", "-lc", str(script)], env=env)
+            return subprocess.call(["/bin/bash", "-lc", str(script)], env=subprocess_env)
     except LockHeld:
         print(f"[INFO] Build skipped: another run is in progress for {config_path}")
         return 0
