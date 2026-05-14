@@ -10,6 +10,7 @@ import shlex
 import subprocess
 from pathlib import Path
 
+from . import openwrt
 from .config import AutobuildPaths, legacy_autobuild_dir, merged_env
 from .lock import LockDir, LockHeld
 from .upload import safe_name
@@ -50,7 +51,7 @@ def _lock_dir(env: dict[str, str], config_path: Path) -> Path:
 
 
 def run_openwrt(args) -> int:
-    return _run_legacy("openwrt_autobuild.sh", args.config, getattr(args, "dry_run", False))
+    return openwrt.run(args)
 
 
 def run_os(args) -> int:

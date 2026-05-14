@@ -27,7 +27,7 @@ class RunnerTests(unittest.TestCase):
             root = Path(tmp)
             legacy = root / "legacy"
             legacy.mkdir()
-            script = legacy / "openwrt_autobuild.sh"
+            script = legacy / "os_autobuild.sh"
             script.write_text("#!/bin/bash\n", encoding="utf-8")
             script.chmod(0o755)
             config = root / "openwrt.env"
@@ -42,7 +42,7 @@ class RunnerTests(unittest.TestCase):
 
             with mock.patch.dict("os.environ", {}, clear=True):
                 with mock.patch("autobuild.runner.subprocess.call", return_value=0) as call:
-                    rc = runner.run_openwrt(SimpleNamespace(config=str(config), dry_run=False))
+                    rc = runner.run_os(SimpleNamespace(config=str(config), dry_run=False))
 
         self.assertEqual(rc, 0)
         call.assert_called_once()

@@ -5,6 +5,7 @@ __all__ = [
     "gitinfo",
     "lock",
     "mail",
+    "openwrt",
     "runner",
     "scheduler",
     "status",

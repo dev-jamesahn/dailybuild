@@ -19,7 +19,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     run_openwrt = sub.add_parser("run-openwrt", help="Run an OpenWrt autobuild")
     run_openwrt.add_argument("--config", required=True, help="Path to OpenWrt env config")
-    run_openwrt.add_argument("--dry-run", action="store_true", help="Print the legacy command without running it")
+    run_openwrt.add_argument("--dry-run", action="store_true", help="Print the OpenWrt run settings without running it")
     run_openwrt.set_defaults(func=runner.run_openwrt)
 
     run_os = sub.add_parser("run-os", help="Run an OS autobuild")
