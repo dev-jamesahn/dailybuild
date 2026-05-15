@@ -17,6 +17,17 @@ from . import upload
 from .upload import safe_name, upload_subdir
 
 
+def _manifest_block(section_name: str, fields: dict[str, str]) -> str:
+    if "OpenWrt " not in section_name:
+        return ""
+    lines = []
+    for key in ("GDM", "SBL", "UBOOT"):
+        value = fields.get(key, "")
+        if value:
+            lines.append(f"{key} : {value}")
+    return "\n".join(lines)
+
+
 def _split_model_item(section_name: str) -> tuple[str, str]:
     parts = section_name.split(maxsplit=1)
     if len(parts) == 2 and parts[0].startswith("GDM"):
@@ -67,11 +78,14 @@ def build_html(status_file: Path, subject: str, run_date: str, samba_unc_root: s
         log_path = _unc_join(upload_root, upload_target_subdir, f"{rel_upload_dir}\\Log") if upload_root else ""
         image_path = _unc_join(upload_root, upload_target_subdir, f"{rel_upload_dir}\\Image") if upload_root and result == "SUCCESS" else ""
         git_block = "\n".join(escape(line) for line in section.git_log)
+        manifest_block = escape(_manifest_block(section.name, section.fields))
         details = []
         if duration:
             details.append(f"<div><strong>Duration:</strong> {escape(duration)}</div>")
         if git_block:
             details.append("<div><strong>Last commit:</strong></div><pre style='margin:4px 0 0 18px;padding:8px 10px;background:#f8fafc;border:1px solid #e4e7ec;border-radius:6px;font-family:Consolas,Menlo,monospace;font-size:12px;line-height:1.45;color:#344054;white-space:pre-wrap;'>" + git_block + "</pre>")
+        if manifest_block:
+            details.append("<div><strong>Manifest hash:</strong></div><pre style='margin:4px 0 0 18px;padding:8px 10px;background:#f8fafc;border:1px solid #e4e7ec;border-radius:6px;font-family:Consolas,Menlo,monospace;font-size:12px;line-height:1.45;color:#344054;white-space:pre-wrap;'>" + manifest_block + "</pre>")
         if failure_analysis:
             details.append(f"<div><strong>Failure analysis:</strong> {escape(failure_analysis)}</div>")
         if log_path:

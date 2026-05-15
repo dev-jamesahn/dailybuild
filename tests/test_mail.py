@@ -47,6 +47,30 @@ class MailTests(unittest.TestCase):
         self.assertIn("<strong>Image :</strong>", html)
         self.assertIn(r"K:\ENG\ENG05\CS_team\James\Test\20260513_145122\GDM7275X\linuxos_master\Log", html)
 
+    def test_build_html_includes_manifest_hash_for_openwrt(self):
+        with TemporaryDirectory() as tmp:
+            status = Path(tmp) / "status.txt"
+            status.write_text(
+                "\n".join([
+                    "[GDM7275X OpenWrt v1.00]",
+                    "Result       : SUCCESS",
+                    "Git log      :",
+                    "  commit : abc123",
+                    "Manifest hashes:",
+                    "  GDM   : gdmhash",
+                    "  SBL   : sblhash",
+                    "  UBOOT : uboothash",
+                ]),
+                encoding="utf-8",
+            )
+
+            html = build_html(status, "[TestPy] Report", "20260513", r"K:\ENG\ENG05\CS_team\James")
+
+        self.assertIn("<strong>Manifest hash:</strong>", html)
+        self.assertIn("GDM : gdmhash", html)
+        self.assertIn("SBL : sblhash", html)
+        self.assertIn("UBOOT : uboothash", html)
+
 
 if __name__ == "__main__":
     unittest.main()
