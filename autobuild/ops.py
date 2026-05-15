@@ -6,7 +6,7 @@ import shlex
 from pathlib import Path
 from types import SimpleNamespace
 
-from .config import daily_status_file, load_env_file, merged_env, today
+from .config import AutobuildPaths, daily_status_file, load_env_file, merged_env, today
 from .status import parse_status_file
 from . import scheduler
 
@@ -132,34 +132,29 @@ def show_status(args) -> int:
 def interactive(args) -> int:
     config_path = Path(getattr(args, "config", "config/autobuild_common.env")).expanduser()
     while True:
-        print("Interactive Operations")
-        print("----------------------")
-        print("1. Show config")
-        print("2. Update config")
-        print("3. Show status")
-        print("4. List jobs")
-        print("5. Schedule one-time test")
-        print("6. Help summary")
-        print("0. Exit")
-        choice = _prompt("Select menu", "0").strip()
+        _print_manager_header(config_path)
+        print("1) Daily Build")
+        print("2) Config")
+        print("3) Status / Logs")
+        print("4) Operations")
+        print("5) Help")
+        print("0) Exit Manager")
         print()
-        if choice == "1":
-            show_config(SimpleNamespace(config=str(config_path)))
-        elif choice == "2":
-            _interactive_update_config(config_path)
-        elif choice == "3":
-            _interactive_show_status(config_path)
-        elif choice == "4":
-            scheduler.list_jobs(SimpleNamespace(config=str(config_path)))
-        elif choice == "5":
-            _interactive_schedule_one_time(config_path)
-        elif choice == "6":
-            _print_help_summary()
-        elif choice == "0":
-            print("Bye.")
+        choice = _prompt("Select", "0").strip()
+        print()
+        if _is_exit_manager_choice(choice):
+            _exit_manager(config_path)
             return 0
-        else:
-            print(f"[WARN] Unknown menu: {choice}")
+        if choice == "1":
+            _daily_build_menu(config_path)
+        elif choice == "2":
+            _config_menu(config_path)
+        elif choice == "3":
+            _status_logs_menu(config_path)
+        elif choice == "4":
+            _operations_menu(config_path)
+        elif choice == "5":
+            _help_menu()
         print()
 
 
@@ -242,6 +237,141 @@ def _interactive_update_config(config_path: Path) -> None:
         print("[INFO] No change")
         return
     _apply_config_updates(config_path, {key: value}, show_after=False)
+
+
+def _daily_build_menu(config_path: Path) -> None:
+    while True:
+        _print_manager_header(config_path)
+        print("[Daily Build]")
+        print("1) Schedule one-time test (dry-run)")
+        print("2) Schedule one-time test")
+        print("3) List jobs")
+        print("4) Show today's status")
+        print("5) Back")
+        print("0) Exit Manager")
+        print()
+        choice = _prompt("Select", "5").strip()
+        print()
+        if _is_exit_manager_choice(choice):
+            _exit_manager(config_path)
+            raise SystemExit(0)
+        if choice == "1":
+            scheduler.test_once(SimpleNamespace(config=str(config_path), dry_run=True))
+        elif choice == "2":
+            confirmed = _prompt("Run one-time test now? (y/N)", "n").strip().lower() in {"y", "yes"}
+            if confirmed:
+                scheduler.test_once(SimpleNamespace(config=str(config_path), dry_run=False))
+            else:
+                print("[INFO] One-time scheduling cancelled")
+        elif choice == "3":
+            scheduler.list_jobs(SimpleNamespace(config=str(config_path)))
+        elif choice == "4":
+            show_status(SimpleNamespace(config=str(config_path), run_date=today(), status_file=None, raw=False))
+        elif choice == "5":
+            return
+        else:
+            print(f"[WARN] Unknown menu: {choice}")
+        print()
+
+
+def _config_menu(config_path: Path) -> None:
+    while True:
+        _print_manager_header(config_path)
+        print("[Config]")
+        print("1) Show config")
+        print("2) Update config")
+        print("3) Back")
+        print("0) Exit Manager")
+        print()
+        choice = _prompt("Select", "3").strip()
+        print()
+        if _is_exit_manager_choice(choice):
+            _exit_manager(config_path)
+            raise SystemExit(0)
+        if choice == "1":
+            show_config(SimpleNamespace(config=str(config_path)))
+        elif choice == "2":
+            _interactive_update_config(config_path)
+        elif choice == "3":
+            return
+        else:
+            print(f"[WARN] Unknown menu: {choice}")
+        print()
+
+
+def _status_logs_menu(config_path: Path) -> None:
+    from . import logtail
+
+    while True:
+        _print_manager_header(config_path)
+        print("[Status / Logs]")
+        print("1) Show status")
+        print("2) Show today's status")
+        print("3) Tail log snapshot")
+        print("4) Back")
+        print("0) Exit Manager")
+        print()
+        choice = _prompt("Select", "4").strip()
+        print()
+        if _is_exit_manager_choice(choice):
+            _exit_manager(config_path)
+            raise SystemExit(0)
+        if choice == "1":
+            _interactive_show_status(config_path)
+        elif choice == "2":
+            show_status(SimpleNamespace(config=str(config_path), run_date=today(), status_file=None, raw=False))
+        elif choice == "3":
+            logtail.tail_logs(SimpleNamespace(config=str(config_path), lines=20, interval=1.0, no_follow=True))
+        elif choice == "4":
+            return
+        else:
+            print(f"[WARN] Unknown menu: {choice}")
+        print()
+
+
+def _operations_menu(config_path: Path) -> None:
+    from . import mail, status as status_mod, upload
+
+    while True:
+        _print_manager_header(config_path)
+        print("[Operations]")
+        print("1) List jobs")
+        print("2) Generate daily status")
+        print("3) Upload run-date")
+        print("4) Notify run-date")
+        print("5) Help summary")
+        print("6) Back")
+        print("0) Exit Manager")
+        print()
+        choice = _prompt("Select", "6").strip()
+        print()
+        if _is_exit_manager_choice(choice):
+            _exit_manager(config_path)
+            raise SystemExit(0)
+        if choice == "1":
+            scheduler.list_jobs(SimpleNamespace(config=str(config_path)))
+        elif choice == "2":
+            run_date = _prompt("Run date (YYYYMMDD)", today()).strip() or today()
+            status_mod.write_daily_status_command(SimpleNamespace(config=str(config_path), run_date=run_date, output=None))
+        elif choice == "3":
+            run_date = _prompt("Run date (YYYYMMDD)", today()).strip() or today()
+            force = _prompt("Force upload? (y/N)", "n").strip().lower() in {"y", "yes"}
+            upload.run(SimpleNamespace(run_date=run_date, config=str(config_path), status_file=None, output_dir=None, upload_subdir=None, force=force))
+        elif choice == "4":
+            run_date = _prompt("Run date (YYYYMMDD)", today()).strip() or today()
+            force = _prompt("Force notify? (y/N)", "n").strip().lower() in {"y", "yes"}
+            mail.notify(SimpleNamespace(run_date=run_date, config=str(config_path), status_file=None, min_run_ts=None, force=force))
+        elif choice == "5":
+            _print_help_summary()
+        elif choice == "6":
+            return
+        else:
+            print(f"[WARN] Unknown menu: {choice}")
+        print()
+
+
+def _help_menu() -> None:
+    _print_help_summary()
 
 
 def _interactive_show_status(config_path: Path) -> None:
@@ -340,6 +470,46 @@ def _print_help_summary() -> None:
     print("list-jobs                 Show cron, one-time state, and running processes")
     print("test-once                 Schedule a one-time full test")
     print("tail-logs                 Follow all cron logs")
+
+
+def _print_manager_header(config_path: Path) -> None:
+    env = merged_env(str(config_path))
+    paths = AutobuildPaths.from_env(env)
+    run_date = today()
+    status_path = daily_status_file(env, run_date)
+    sections = parse_status_file(status_path) if status_path.exists() else []
+    counts: dict[str, int] = {}
+    for section in sections:
+        result = section.fields.get("Result") or section.fields.get("Status") or "UNKNOWN"
+        counts[result] = counts.get(result, 0) + 1
+    running = scheduler._running_autobuild_processes()
+    one_time_rows = scheduler._one_time_test_rows(paths.state_root)
+    latest_one_time = one_time_rows[0]["test_run_ts"] if one_time_rows else "none"
+
+    print("==========================================")
+    print(" Daily Build Manager")
+    print("==========================================")
+    print(f"Workspace : {paths.work_root}")
+    print(f"Config    : {config_path}")
+    if counts:
+        summary = ", ".join(f"{key}={counts[key]}" for key in sorted(counts))
+        print(f"Today     : {run_date} ({summary})")
+    else:
+        print(f"Today     : {run_date} (no status)")
+    print(f"Running   : {len(running)} process(es)")
+    print(f"One-time  : latest={latest_one_time}")
+    print()
+
+
+def _is_exit_manager_choice(choice: str) -> bool:
+    return choice in {"0", "q", "Q", "quit", "QUIT", "exit", "EXIT"}
+
+
+def _exit_manager(config_path: Path) -> None:
+    running = scheduler._running_autobuild_processes()
+    print("Exit Manager")
+    if running:
+        print("Running processes will continue in the background.")
 
 
 def _prompt(label: str, default: str) -> str:

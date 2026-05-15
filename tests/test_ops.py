@@ -110,15 +110,15 @@ class OpsTests(unittest.TestCase):
 
         text = output.getvalue()
         self.assertEqual(rc, 0)
-        self.assertIn("Interactive Operations", text)
-        self.assertIn("Bye.", text)
+        self.assertIn("Daily Build Manager", text)
+        self.assertIn("Exit Manager", text)
 
     def test_interactive_updates_mail_to(self):
         with tempfile.TemporaryDirectory() as tmp:
             config = Path(tmp) / "autobuild_common.env"
             config.write_text("MAIL_TO='old@gctsemi.com'\n", encoding="utf-8")
             output = io.StringIO()
-            with mock.patch("builtins.input", side_effect=["2", "1", "new@gctsemi.com", "0"]):
+            with mock.patch("builtins.input", side_effect=["2", "2", "1", "new@gctsemi.com", "3", "0"]):
                 with redirect_stdout(output):
                     rc = ops.interactive(argparse.Namespace(config=str(config)))
 
@@ -133,7 +133,7 @@ class OpsTests(unittest.TestCase):
             config.write_text("", encoding="utf-8")
             output = io.StringIO()
             with mock.patch("autobuild.ops.scheduler.test_once", return_value=0) as test_once:
-                with mock.patch("builtins.input", side_effect=["5", "y", "0"]):
+                with mock.patch("builtins.input", side_effect=["1", "1", "5", "0"]):
                     with redirect_stdout(output):
                         rc = ops.interactive(argparse.Namespace(config=str(config)))
 
@@ -162,7 +162,7 @@ class OpsTests(unittest.TestCase):
                 encoding="utf-8",
             )
             output = io.StringIO()
-            with mock.patch("builtins.input", side_effect=["3", "20260515", "1", "0"]):
+            with mock.patch("builtins.input", side_effect=["3", "1", "20260515", "1", "4", "0"]):
                 with redirect_stdout(output):
                     rc = ops.interactive(argparse.Namespace(config=str(config)))
 
@@ -171,6 +171,19 @@ class OpsTests(unittest.TestCase):
         self.assertIn("Failed     : GDM7275X OpenWrt v1.00", text)
         self.assertIn("Result: FAIL", text)
         self.assertIn("Git log:", text)
+
+    def test_interactive_operations_generate_status(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config = Path(tmp) / "autobuild_common.env"
+            config.write_text("", encoding="utf-8")
+            output = io.StringIO()
+            with mock.patch("autobuild.ops.show_status", return_value=0) as show_status:
+                with mock.patch("builtins.input", side_effect=["1", "4", "5", "0"]):
+                    with redirect_stdout(output):
+                        rc = ops.interactive(argparse.Namespace(config=str(config)))
+
+        self.assertEqual(rc, 0)
+        show_status.assert_called_once()
 
 
 if __name__ == "__main__":
