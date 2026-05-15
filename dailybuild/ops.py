@@ -6,7 +6,7 @@ import shlex
 from pathlib import Path
 from types import SimpleNamespace
 
-from .config import AutobuildPaths, daily_status_file, load_env_file, merged_env, today
+from .config import DailybuildPaths, daily_status_file, load_env_file, merged_env, today
 from .status import parse_status_file
 from . import scheduler
 
@@ -28,10 +28,10 @@ CONFIG_GROUPS = [
         "SMTP_INSECURE_TLS",
     ]),
     ("Paths", [
-        "AUTOBUILD_ROOT",
-        "AUTOBUILD_LOG_ROOT",
-        "AUTOBUILD_TMP_ROOT",
-        "AUTOBUILD_STATE_ROOT",
+        "DAILYBUILD_ROOT",
+        "DAILYBUILD_LOG_ROOT",
+        "DAILYBUILD_TMP_ROOT",
+        "DAILYBUILD_STATE_ROOT",
     ]),
     ("Samba", [
         "SAMBA_UPLOAD_ENABLED",
@@ -59,7 +59,7 @@ INTERACTIVE_CONFIG_OPTIONS = [
 
 
 def show_config(args) -> int:
-    config_path = Path(getattr(args, "config", "config/autobuild_common.env")).expanduser()
+    config_path = Path(getattr(args, "config", "config/dailybuild_common.env")).expanduser()
     values = load_env_file(config_path)
     merged = merged_env(config_path)
     print(f"Config file: {config_path}")
@@ -77,7 +77,7 @@ def show_config(args) -> int:
 
 
 def set_config(args) -> int:
-    config_path = Path(getattr(args, "config", "config/autobuild_common.env")).expanduser()
+    config_path = Path(getattr(args, "config", "config/dailybuild_common.env")).expanduser()
     updates = _collect_updates(args)
     if not updates:
         raise SystemExit("No config updates requested")
@@ -89,7 +89,7 @@ def show_status(args) -> int:
     overrides = {"RUN_DATE": run_date}
     if getattr(args, "status_file", None):
         overrides["DAILY_STATUS_FILE"] = args.status_file
-    env = merged_env(getattr(args, "config", "config/autobuild_common.env"), overrides)
+    env = merged_env(getattr(args, "config", "config/dailybuild_common.env"), overrides)
     status_path = Path(getattr(args, "status_file", None) or daily_status_file(env, run_date))
     if not status_path.exists():
         print(f"[WARN] Status file not found: {status_path}")
@@ -130,7 +130,7 @@ def show_status(args) -> int:
 
 
 def interactive(args) -> int:
-    config_path = Path(getattr(args, "config", "config/autobuild_common.env")).expanduser()
+    config_path = Path(getattr(args, "config", "config/dailybuild_common.env")).expanduser()
     while True:
         _print_manager_header(config_path)
         print("1) Daily Build")
@@ -474,7 +474,7 @@ def _print_help_summary() -> None:
 
 def _print_manager_header(config_path: Path) -> None:
     env = merged_env(str(config_path))
-    paths = AutobuildPaths.from_env(env)
+    paths = DailybuildPaths.from_env(env)
     run_date = today()
     status_path = daily_status_file(env, run_date)
     sections = parse_status_file(status_path) if status_path.exists() else []
@@ -482,7 +482,7 @@ def _print_manager_header(config_path: Path) -> None:
     for section in sections:
         result = section.fields.get("Result") or section.fields.get("Status") or "UNKNOWN"
         counts[result] = counts.get(result, 0) + 1
-    running = scheduler._running_autobuild_processes()
+    running = scheduler._running_dailybuild_processes()
     one_time_rows = scheduler._one_time_test_rows(paths.state_root)
     latest_one_time = one_time_rows[0]["test_run_ts"] if one_time_rows else "none"
 
@@ -506,7 +506,7 @@ def _is_exit_manager_choice(choice: str) -> bool:
 
 
 def _exit_manager(config_path: Path) -> None:
-    running = scheduler._running_autobuild_processes()
+    running = scheduler._running_dailybuild_processes()
     print("Exit Manager")
     if running:
         print("Running processes will continue in the background.")

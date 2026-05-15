@@ -2,7 +2,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from autobuild.mail import build_html, summary_ready_for_today
+from dailybuild.mail import build_html, summary_ready_for_today
 
 
 class MailTests(unittest.TestCase):

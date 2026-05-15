@@ -6,7 +6,7 @@ import datetime as dt
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .config import AutobuildPaths, daily_status_file, load_env_file, merged_env, today
+from .config import DailybuildPaths, daily_status_file, load_env_file, merged_env, today
 
 
 @dataclass
@@ -187,7 +187,7 @@ def write_daily_status_command(args) -> int:
     if getattr(args, "output", None):
         overrides["DAILY_STATUS_FILE"] = args.output
     env = merged_env(args.config, overrides)
-    paths = AutobuildPaths.from_env(env)
+    paths = DailybuildPaths.from_env(env)
     output = Path(args.output) if getattr(args, "output", None) else daily_status_file(env, run_date)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(generate_daily_status(paths.log_root), encoding="utf-8")

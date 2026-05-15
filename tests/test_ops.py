@@ -6,13 +6,13 @@ from contextlib import redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from autobuild import ops
+from dailybuild import ops
 
 
 class OpsTests(unittest.TestCase):
     def test_show_config_prints_managed_values(self):
         with tempfile.TemporaryDirectory() as tmp:
-            config = Path(tmp) / "autobuild_common.env"
+            config = Path(tmp) / "dailybuild_common.env"
             config.write_text(
                 "\n".join([
                     "MAIL_TO='jamesahn@gctsemi.com'",
@@ -33,7 +33,7 @@ class OpsTests(unittest.TestCase):
 
     def test_set_config_replaces_and_appends_values(self):
         with tempfile.TemporaryDirectory() as tmp:
-            config = Path(tmp) / "autobuild_common.env"
+            config = Path(tmp) / "dailybuild_common.env"
             config.write_text(
                 "\n".join([
                     "MAIL_TO='old@gctsemi.com'",
@@ -67,7 +67,7 @@ class OpsTests(unittest.TestCase):
     def test_show_status_summarizes_status_file(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            status_file = root / "daily_autobuild_status_20260515.txt"
+            status_file = root / "dailybuild_status_20260515.txt"
             status_file.write_text(
                 "\n".join([
                     "[GDM7275X OpenWrt v1.00]",
@@ -86,7 +86,7 @@ class OpsTests(unittest.TestCase):
             output = io.StringIO()
             args = argparse.Namespace(
                 run_date="20260515",
-                config=str(root / "autobuild_common.env"),
+                config=str(root / "dailybuild_common.env"),
                 status_file=str(status_file),
                 raw=False,
             )
@@ -101,7 +101,7 @@ class OpsTests(unittest.TestCase):
 
     def test_interactive_exits_immediately(self):
         with tempfile.TemporaryDirectory() as tmp:
-            config = Path(tmp) / "autobuild_common.env"
+            config = Path(tmp) / "dailybuild_common.env"
             config.write_text("", encoding="utf-8")
             output = io.StringIO()
             with mock.patch("builtins.input", side_effect=["0"]):
@@ -115,7 +115,7 @@ class OpsTests(unittest.TestCase):
 
     def test_interactive_updates_mail_to(self):
         with tempfile.TemporaryDirectory() as tmp:
-            config = Path(tmp) / "autobuild_common.env"
+            config = Path(tmp) / "dailybuild_common.env"
             config.write_text("MAIL_TO='old@gctsemi.com'\n", encoding="utf-8")
             output = io.StringIO()
             with mock.patch("builtins.input", side_effect=["2", "2", "1", "new@gctsemi.com", "3", "0"]):
@@ -129,10 +129,10 @@ class OpsTests(unittest.TestCase):
 
     def test_interactive_schedule_one_time_dry_run(self):
         with tempfile.TemporaryDirectory() as tmp:
-            config = Path(tmp) / "autobuild_common.env"
+            config = Path(tmp) / "dailybuild_common.env"
             config.write_text("", encoding="utf-8")
             output = io.StringIO()
-            with mock.patch("autobuild.ops.scheduler.test_once", return_value=0) as test_once:
+            with mock.patch("dailybuild.ops.scheduler.test_once", return_value=0) as test_once:
                 with mock.patch("builtins.input", side_effect=["1", "1", "5", "0"]):
                     with redirect_stdout(output):
                         rc = ops.interactive(argparse.Namespace(config=str(config)))
@@ -144,11 +144,11 @@ class OpsTests(unittest.TestCase):
     def test_interactive_show_status_section_detail(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            config = root / "autobuild_common.env"
+            config = root / "dailybuild_common.env"
             state_root = root / "state"
             state_root.mkdir()
-            config.write_text(f"AUTOBUILD_STATE_ROOT='{state_root}'\n", encoding="utf-8")
-            status_file = state_root / "daily_autobuild_status_20260515.txt"
+            config.write_text(f"DAILYBUILD_STATE_ROOT='{state_root}'\n", encoding="utf-8")
+            status_file = state_root / "dailybuild_status_20260515.txt"
             status_file.write_text(
                 "\n".join([
                     "[GDM7275X OpenWrt v1.00]",
@@ -174,10 +174,10 @@ class OpsTests(unittest.TestCase):
 
     def test_interactive_operations_generate_status(self):
         with tempfile.TemporaryDirectory() as tmp:
-            config = Path(tmp) / "autobuild_common.env"
+            config = Path(tmp) / "dailybuild_common.env"
             config.write_text("", encoding="utf-8")
             output = io.StringIO()
-            with mock.patch("autobuild.ops.show_status", return_value=0) as show_status:
+            with mock.patch("dailybuild.ops.show_status", return_value=0) as show_status:
                 with mock.patch("builtins.input", side_effect=["1", "4", "5", "0"]):
                     with redirect_stdout(output):
                         rc = ops.interactive(argparse.Namespace(config=str(config)))

@@ -3,7 +3,7 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import unittest
 
-from autobuild import upload
+from dailybuild import upload
 
 
 class UploadTests(unittest.TestCase):
@@ -26,9 +26,9 @@ class UploadTests(unittest.TestCase):
             root = Path(tmp)
             state = root / "state"
             state.mkdir()
-            status_file = root / "daily_autobuild_status_20260513.txt"
+            status_file = root / "dailybuild_status_20260513.txt"
             status_file.write_text("[GDM7275X OpenWrt v1.00]\n", encoding="utf-8")
-            flag = state / ".daily_autobuild_logs_uploaded_20260513.flag"
+            flag = state / ".dailybuild_logs_uploaded_20260513.flag"
             flag.write_text("uploaded_at=test\n", encoding="utf-8")
             output = root / "upload"
             config = root / "config.env"
@@ -36,7 +36,7 @@ class UploadTests(unittest.TestCase):
                 "\n".join([
                     "SAMBA_UPLOAD_ENABLED=1",
                     f"SAMBA_UPLOAD_LOCAL_DIR='{output}'",
-                    f"AUTOBUILD_STATE_ROOT='{state}'",
+                    f"DAILYBUILD_STATE_ROOT='{state}'",
                 ]),
                 encoding="utf-8",
             )
@@ -69,7 +69,7 @@ class UploadTests(unittest.TestCase):
                 ]),
                 encoding="utf-8",
             )
-            status_file = root / "one_time_daily_autobuild_status_20260513_145122.txt"
+            status_file = root / "one_time_dailybuild_status_20260513_145122.txt"
             status_file.write_text(
                 "\n".join([
                     "[GDM7275X Linuxos master]",
@@ -84,7 +84,7 @@ class UploadTests(unittest.TestCase):
                 "\n".join([
                     "SAMBA_UPLOAD_ENABLED=1",
                     f"SAMBA_UPLOAD_LOCAL_DIR='{output}'",
-                    f"AUTOBUILD_STATE_ROOT='{state}'",
+                    f"DAILYBUILD_STATE_ROOT='{state}'",
                 ]),
                 encoding="utf-8",
             )

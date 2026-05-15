@@ -9,7 +9,7 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from .config import AutobuildPaths, daily_status_file, merged_env, today
+from .config import DailybuildPaths, daily_status_file, merged_env, today
 from .lock import LockDir, LockHeld
 from .status import generate_fw_build_info
 
@@ -142,8 +142,8 @@ def run(args) -> int:
     if getattr(args, "upload_subdir", None):
         overrides["SAMBA_UPLOAD_SUBDIR"] = args.upload_subdir
     env = merged_env(args.config, overrides)
-    paths = AutobuildPaths.from_env(env)
-    lock_dir = Path(env.get("UPLOAD_LOCK_DIR") or paths.tmp_root / f"daily_autobuild_upload_{run_date}.lock")
+    paths = DailybuildPaths.from_env(env)
+    lock_dir = Path(env.get("UPLOAD_LOCK_DIR") or paths.tmp_root / f"dailybuild_upload_{run_date}.lock")
     try:
         with LockDir(lock_dir):
             return _run_with_lock(args, env, run_date)
@@ -162,8 +162,8 @@ def _run_with_lock(args, env: dict[str, str], run_date: str) -> int:
         print(f"[WARN] Daily log upload skipped: daily status file not found: {status_file}")
         return 0
 
-    paths = AutobuildPaths.from_env(env)
-    flag = Path(env.get("UPLOAD_FLAG_FILE") or paths.state_root / f".daily_autobuild_logs_uploaded_{run_date}.flag")
+    paths = DailybuildPaths.from_env(env)
+    flag = Path(env.get("UPLOAD_FLAG_FILE") or paths.state_root / f".dailybuild_logs_uploaded_{run_date}.flag")
     if flag.exists() and not getattr(args, "force", False):
         print(f"[INFO] Daily log upload skipped: already uploaded for RUN_DATE={run_date}")
         return 0
@@ -172,7 +172,7 @@ def _run_with_lock(args, env: dict[str, str], run_date: str) -> int:
     if not upload_root:
         raise SystemExit("SAMBA_UPLOAD_LOCAL_DIR is required in the Python uploader for now")
 
-    with tempfile.TemporaryDirectory(prefix="daily_autobuild_upload.") as tmp:
+    with tempfile.TemporaryDirectory(prefix="dailybuild_upload.") as tmp:
         package_dir = Path(tmp) / upload_subdir(env, run_date).name
         package_dir.mkdir(parents=True)
         manifest = [

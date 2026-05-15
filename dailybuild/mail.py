@@ -10,7 +10,7 @@ from html import escape
 from pathlib import Path
 from types import SimpleNamespace
 
-from .config import AutobuildPaths, daily_status_file, load_env_file, merged_env, today
+from .config import DailybuildPaths, daily_status_file, load_env_file, merged_env, today
 from .lock import LockDir, LockHeld
 from .status import parse_status_file
 from . import upload
@@ -178,8 +178,8 @@ def notify(args) -> int:
     if getattr(args, "min_run_ts", None):
         overrides["MIN_RUN_TS"] = args.min_run_ts
     env = merged_env(args.config, overrides)
-    paths = AutobuildPaths.from_env(env)
-    lock_dir = Path(env.get("LOCK_DIR") or paths.tmp_root / f"daily_autobuild_mail_notifier_{run_date}.lock")
+    paths = DailybuildPaths.from_env(env)
+    lock_dir = Path(env.get("LOCK_DIR") or paths.tmp_root / f"dailybuild_mail_notifier_{run_date}.lock")
     try:
         with LockDir(lock_dir):
             return _notify_with_lock(args, env, run_date)
@@ -193,9 +193,9 @@ def _notify_with_lock(args, env: dict[str, str], run_date: str) -> int:
         print(f"[INFO] Daily mail notifier skipped: EMAIL_NOTI_ENABLED={env.get('EMAIL_NOTI_ENABLED')}")
         return 0
 
-    paths = AutobuildPaths.from_env(env)
-    sent_flag = Path(env.get("SENT_FLAG_FILE") or paths.state_root / f".daily_autobuild_mail_sent_{run_date}.flag")
-    upload_flag = Path(env.get("UPLOAD_FLAG_FILE") or paths.state_root / f".daily_autobuild_logs_uploaded_{run_date}.flag")
+    paths = DailybuildPaths.from_env(env)
+    sent_flag = Path(env.get("SENT_FLAG_FILE") or paths.state_root / f".dailybuild_mail_sent_{run_date}.flag")
+    upload_flag = Path(env.get("UPLOAD_FLAG_FILE") or paths.state_root / f".dailybuild_logs_uploaded_{run_date}.flag")
     if sent_flag.exists() and not getattr(args, "force", False):
         print(f"[INFO] Daily mail notifier skipped: already sent for RUN_DATE={run_date}")
         return 0
@@ -211,7 +211,7 @@ def _notify_with_lock(args, env: dict[str, str], run_date: str) -> int:
     if not upload_flag.exists():
         upload.run(SimpleNamespace(
             run_date=run_date,
-            config=getattr(args, "config", "config/autobuild_common.env"),
+            config=getattr(args, "config", "config/dailybuild_common.env"),
             status_file=getattr(args, "status_file", None),
             output_dir=None,
             upload_subdir=env.get("SAMBA_UPLOAD_SUBDIR"),
@@ -268,7 +268,7 @@ SUMMARY_FILES = [
 
 
 def summaries_ready_for_today(env: dict[str, str], run_date: str) -> bool:
-    log_root = AutobuildPaths.from_env(env).log_root
+    log_root = DailybuildPaths.from_env(env).log_root
     for label, env_key, rel_path in SUMMARY_FILES:
         summary_file = Path(env.get(env_key) or log_root / rel_path)
         if not summary_ready_for_today(summary_file, run_date, env.get("MIN_RUN_TS", "")):

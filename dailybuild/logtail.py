@@ -1,4 +1,4 @@
-"""Follow multiple autobuild logs with stable target prefixes."""
+"""Follow multiple dailybuild logs with stable target prefixes."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from .config import AutobuildPaths, merged_env
+from .config import DailybuildPaths, merged_env
 from .scheduler import daily_build_log_specs
 
 
@@ -20,7 +20,7 @@ class FollowState:
 
 def tail_logs(args) -> int:
     env = merged_env(getattr(args, "config", None))
-    log_root = AutobuildPaths.from_env(env).log_root
+    log_root = DailybuildPaths.from_env(env).log_root
     states = [
         FollowState(label=label, path=log_root / log_rel)
         for label, log_rel in daily_build_log_specs()

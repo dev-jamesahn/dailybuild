@@ -1,9 +1,9 @@
 # dailybuild
 
-Python migration of the GCT daily autobuild tools.
+Python migration of the GCT dailybuild tools.
 
 The current goal is to validate the Python flow under the `jamesahn` account
-before replacing the existing daily autobuild operation. The main build entry
+before replacing the existing dailybuild operation. The main build entry
 points, scheduling, status parsing, upload, mail, and operational checks now
 run from Python while the legacy shell repository remains available as the
 reference implementation during the transition.
@@ -12,7 +12,7 @@ reference implementation during the transition.
 
 Implemented:
 
-- Single Python entrypoint: `autobuild.py`
+- Single Python entrypoint: `dailybuild.py`
 - One-time daily test scheduler: `test-once`
 - Cron entry generator: `install-cron --dry-run`
 - Native Python build runners: `run-openwrt`, `run-os`, `run-zephyros`
@@ -27,7 +27,7 @@ Implemented:
 
 Recently changed:
 
-- Python workspace separated from the legacy autobuild workspace.
+- Python workspace separated from the legacy build workspace.
 - Build lock names now use config file stems to avoid parallel target collisions.
 - `FW_build_info_YYYYMMDD.txt` now includes `PASS` / `FAIL` / `N/A`.
 - Failed builds include `Failure analysis` in `FW_build_info_YYYYMMDD.txt`.
@@ -52,7 +52,7 @@ This repository is intended to run under:
 The legacy reference repository remains available at:
 
 ```text
-/home/jamesahn/gct-build-tools/autobuild
+/home/jamesahn/gct-build-tools/dailybuild
 ```
 
 Python dailybuild runtime data is separated under:
@@ -73,7 +73,7 @@ Runtime subdirectories:
 The old legacy workspace remains separate:
 
 ```text
-/home/jamesahn/gct_workspace/autobuild
+/home/jamesahn/gct_workspace/dailybuild
 ```
 
 ## Runtime Policy
@@ -95,7 +95,7 @@ operation.
 Run one-time daily test:
 
 ```bash
-./autobuild.py test-once
+./dailybuild.py test-once
 ```
 
 One-time build jobs start one minute after scheduling by default. Override with
@@ -104,7 +104,7 @@ One-time build jobs start one minute after scheduling by default. Override with
 Preview one-time daily test schedule:
 
 ```bash
-./autobuild.py test-once --dry-run
+./dailybuild.py test-once --dry-run
 ```
 
 One-time tests stop scheduling notifier retries after 180 minutes by default.
@@ -115,31 +115,31 @@ exit without upload or mail after the timeout. Override with
 View all build logs together:
 
 ```bash
-./autobuild.py tail-logs
+./dailybuild.py tail-logs
 ```
 
 View current log tails and exit:
 
 ```bash
-./autobuild.py tail-logs --lines 20 --no-follow
+./dailybuild.py tail-logs --lines 20 --no-follow
 ```
 
 Show current job / scheduler state:
 
 ```bash
-./autobuild.py list-jobs
+./dailybuild.py list-jobs
 ```
 
 Show managed runtime configuration:
 
 ```bash
-./autobuild.py show-config
+./dailybuild.py show-config
 ```
 
 Launch the interactive operations menu:
 
 ```bash
-./autobuild.py interactive
+./dailybuild.py interactive
 ```
 
 Inside `interactive`, you can:
@@ -152,65 +152,65 @@ Inside `interactive`, you can:
 Update common operational settings:
 
 ```bash
-./autobuild.py set-config --mail-to jamesahn@gctsemi.com --subject-prefix "[TestPy]" --show-after
-./autobuild.py set-config --test-mail-to jamesahn@gctsemi.com --test-subject-prefix "[TestPy]"
-./autobuild.py set-config --set START_AFTER_MINUTES=1 --set TEST_ONCE_MAX_RUNTIME_MINUTES=180
+./dailybuild.py set-config --mail-to jamesahn@gctsemi.com --subject-prefix "[TestPy]" --show-after
+./dailybuild.py set-config --test-mail-to jamesahn@gctsemi.com --test-subject-prefix "[TestPy]"
+./dailybuild.py set-config --set START_AFTER_MINUTES=1 --set TEST_ONCE_MAX_RUNTIME_MINUTES=180
 ```
 
 Show summarized daily status:
 
 ```bash
-./autobuild.py show-status --run-date 20260515
-./autobuild.py show-status --run-date 20260515 --raw
+./dailybuild.py show-status --run-date 20260515
+./dailybuild.py show-status --run-date 20260515 --raw
 ```
 
 Run one target manually:
 
 ```bash
-./autobuild.py run-openwrt --config config/openwrt_v1.00_autobuild.env
-./autobuild.py run-openwrt --config config/openwrt_master_autobuild.env
-./autobuild.py run-os --config config/gdm7275x_linuxos_master_autobuild.env
-./autobuild.py run-zephyros --config config/zephyros_autobuild.env
+./dailybuild.py run-openwrt --config config/openwrt_v1.00_dailybuild.env
+./dailybuild.py run-openwrt --config config/openwrt_master_dailybuild.env
+./dailybuild.py run-os --config config/gdm7275x_linuxos_master_dailybuild.env
+./dailybuild.py run-zephyros --config config/zephyros_dailybuild.env
 ```
 
 Generate daily status:
 
 ```bash
-./autobuild.py status --run-date 20260513
+./dailybuild.py status --run-date 20260513
 ```
 
 Upload logs and images:
 
 ```bash
-./autobuild.py upload --run-date 20260513
-./autobuild.py upload --run-date 20260513 --force
+./dailybuild.py upload --run-date 20260513
+./dailybuild.py upload --run-date 20260513 --force
 ```
 
 Send report mail:
 
 ```bash
-./autobuild.py notify --run-date 20260513
-./autobuild.py notify --run-date 20260513 --force
+./dailybuild.py notify --run-date 20260513
+./dailybuild.py notify --run-date 20260513 --force
 ```
 
 Preview cron entries:
 
 ```bash
-./autobuild.py install-cron --dry-run
+./dailybuild.py install-cron --dry-run
 ```
 
 Install cron entries:
 
 ```bash
-./autobuild.py install-cron
+./dailybuild.py install-cron
 ```
 
 Show command help:
 
 ```bash
-./autobuild.py --help
-./autobuild.py set-config --help
-./autobuild.py show-status --help
+./dailybuild.py --help
+./dailybuild.py set-config --help
+./dailybuild.py show-status --help
 ```
 
 The generated cron schedule starts daily build tests at `03:00`, then launches
@@ -324,16 +324,16 @@ image upload rules for that target.
 ## Layout
 
 ```text
-autobuild.py             CLI entrypoint
+dailybuild.py             CLI entrypoint
 config/                  env-style runtime configs
-autobuild/config.py      env/config loading and shared paths
-autobuild/runner.py      OpenWrt / OS / Zephyros runner adapters
-autobuild/status.py      summary/status parsing and FW_build_info generation
-autobuild/upload.py      Samba/local upload packaging
-autobuild/mail.py        HTML mail generation and SMTP delivery
-autobuild/scheduler.py   cron and one-time test adapters
-autobuild/logtail.py     combined multi-log tail viewer
-autobuild/gitinfo.py     commit metadata helpers
+dailybuild/config.py      env/config loading and shared paths
+dailybuild/runner.py      OpenWrt / OS / Zephyros runner adapters
+dailybuild/status.py      summary/status parsing and FW_build_info generation
+dailybuild/upload.py      Samba/local upload packaging
+dailybuild/mail.py        HTML mail generation and SMTP delivery
+dailybuild/scheduler.py   cron and one-time test adapters
+dailybuild/logtail.py     combined multi-log tail viewer
+dailybuild/gitinfo.py     commit metadata helpers
 ```
 
 ## Tests

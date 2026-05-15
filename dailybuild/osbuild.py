@@ -1,4 +1,4 @@
-"""Native Python OS/uTKernel/zephyr-v2.3 autobuild runner."""
+"""Native Python OS/uTKernel/zephyr-v2.3 dailybuild runner."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from .config import AutobuildPaths, daily_status_file, merged_env
+from .config import DailybuildPaths, daily_status_file, merged_env
 from .gitinfo import last_commit
 from .status import generate_daily_status
 
@@ -67,7 +67,7 @@ class OSBuild:
             raise SystemExit(f"Missing config file: {self.config_file}")
 
         self.env = merged_env(self.config_file, {"CONFIG_FILE": str(self.config_file)})
-        self.paths = AutobuildPaths.from_env(self.env)
+        self.paths = DailybuildPaths.from_env(self.env)
         self.run_ts = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
         self.run_date = dt.datetime.now().strftime("%Y%m%d")
         self.start_epoch = int(time.time())
@@ -87,7 +87,7 @@ class OSBuild:
         self.os_target_name = self.env.get("OS_TARGET_NAME", "")
 
         self.slugs = self._slugs()
-        self.repo_storage_root = Path(self.env.get("AUTOBUILD_REPO_ROOT") or self.paths.autobuild_root / "repos").expanduser()
+        self.repo_storage_root = Path(self.env.get("DAILYBUILD_REPO_ROOT") or self.paths.dailybuild_root / "repos").expanduser()
         self.work_dir = Path(self.env.get("WORK_DIR") or self.paths.tmp_root / f"{self.slugs.project}_{_run_user()}_{self.slugs.model}").expanduser()
         self.repo_dir = Path(self.env.get("REPO_DIR") or self.repo_storage_root / self.slugs.project / self.slugs.model).expanduser()
         self.log_root = Path(self.env.get("LOG_ROOT") or self.paths.log_root / self.slugs.project / self.slugs.model).expanduser()
@@ -182,9 +182,9 @@ class OSBuild:
     def _run_steps(self) -> None:
         log = self.logger
         assert log is not None
-        log.line(f"[INFO] {self.target_name} autobuild started")
+        log.line(f"[INFO] {self.target_name} dailybuild started")
         log.line(f"[INFO] Workspace root: {self.paths.work_root}")
-        log.line(f"[INFO] Autobuild root: {self.paths.autobuild_root}")
+        log.line(f"[INFO] Autobuild root: {self.paths.dailybuild_root}")
         log.line(f"[INFO] Run directory : {self.run_dir}")
         log.line(f"[INFO] Config file   : {self.config_file}")
         log.line(f"[INFO] Model lineup  : {self.model_lineup}")
@@ -257,7 +257,7 @@ class OSBuild:
         with self.verbose_log.open("a", encoding="utf-8", errors="replace") as verbose:
             self._run_logged(["bash", "-lc", self.build_cmd], cwd=self.repo_dir, extra_fp=verbose)
         log.line()
-        log.line(f"[INFO] {self.target_name} autobuild completed successfully")
+        log.line(f"[INFO] {self.target_name} dailybuild completed successfully")
 
     def _run_expect_config(self) -> None:
         script = self.work_dir / f"{self.slugs.project}_{self.slugs.model}_make_config.exp"

@@ -3,7 +3,7 @@ from tempfile import TemporaryDirectory
 import datetime as dt
 import unittest
 
-from autobuild.status import discover_os_summary_files, format_target_status, generate_daily_status, generate_fw_build_info, parse_status_file
+from dailybuild.status import discover_os_summary_files, format_target_status, generate_daily_status, generate_fw_build_info, parse_status_file
 
 
 class StatusTests(unittest.TestCase):

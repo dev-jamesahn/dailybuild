@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from autobuild.osbuild import OSBuild, _EXPECT_CONFIG_SCRIPT
+from dailybuild.osbuild import OSBuild, _EXPECT_CONFIG_SCRIPT
 
 
 class OSBuildTests(unittest.TestCase):
@@ -13,7 +13,7 @@ class OSBuildTests(unittest.TestCase):
             config = root / "os.env"
             config.write_text(
                 "\n".join([
-                    f"AUTOBUILD_ROOT='{root / 'autobuild'}'",
+                    f"DAILYBUILD_ROOT='{root / 'dailybuild'}'",
                     "MODEL_LINEUP=GDM7243A",
                     "OS_PROJECT_NAME=uTKernel",
                     "OS_REPO_URL=https://example.invalid/uTKernel",
@@ -36,7 +36,7 @@ class OSBuildTests(unittest.TestCase):
             config = root / "os.env"
             config.write_text(
                 "\n".join([
-                    f"AUTOBUILD_ROOT='{root / 'autobuild'}'",
+                    f"DAILYBUILD_ROOT='{root / 'dailybuild'}'",
                     "MODEL_LINEUP=GDM7243i",
                     "OS_PROJECT_NAME=zephyr-v2.3",
                     "OS_REPO_URL=https://example.invalid/zephyr",

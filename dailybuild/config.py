@@ -58,7 +58,7 @@ def load_env_file(path: str | Path | None, _seen: set[Path] | None = None) -> di
 def merged_env(config_file: str | Path | None = None, overrides: dict[str, str] | None = None) -> dict[str, str]:
     env = dict(os.environ)
     config_values = load_env_file(config_file)
-    common_config = config_values.get("AUTOBUILD_COMMON_CONFIG")
+    common_config = config_values.get("DAILYBUILD_COMMON_CONFIG") or config_values.get("DAILYBUILD_COMMON_CONFIG")
     if common_config:
         common_path = Path(common_config).expanduser()
         if not common_path.is_absolute() and config_file:
@@ -71,27 +71,27 @@ def merged_env(config_file: str | Path | None = None, overrides: dict[str, str] 
 
 
 @dataclass(frozen=True)
-class AutobuildPaths:
+class DailybuildPaths:
     repo_root: Path
     work_root: Path
-    autobuild_root: Path
+    dailybuild_root: Path
     log_root: Path
     tmp_root: Path
     state_root: Path
 
     @classmethod
-    def from_env(cls, env: dict[str, str] | None = None) -> "AutobuildPaths":
+    def from_env(cls, env: dict[str, str] | None = None) -> "DailybuildPaths":
         env = env or os.environ
         home = Path(env.get("HOME", str(Path.home()))).expanduser()
         repo_root = Path(__file__).resolve().parents[1]
         work_root = Path(env.get("GCT_WORK_ROOT") or env.get("WORK_ROOT") or home / "gct_workspace").expanduser()
-        autobuild_root = Path(env.get("AUTOBUILD_ROOT") or work_root / "autobuild").expanduser()
-        log_root = Path(env.get("AUTOBUILD_LOG_ROOT") or autobuild_root / "logs").expanduser()
-        tmp_root = Path(env.get("AUTOBUILD_TMP_ROOT") or autobuild_root / "tmp").expanduser()
-        state_root = Path(env.get("AUTOBUILD_STATE_ROOT") or autobuild_root / "state").expanduser()
-        return cls(repo_root, work_root, autobuild_root, log_root, tmp_root, state_root)
+        dailybuild_root = Path(env.get("DAILYBUILD_ROOT") or env.get("DAILYBUILD_ROOT") or work_root / "dailybuild").expanduser()
+        log_root = Path(env.get("DAILYBUILD_LOG_ROOT") or env.get("DAILYBUILD_LOG_ROOT") or dailybuild_root / "logs").expanduser()
+        tmp_root = Path(env.get("DAILYBUILD_TMP_ROOT") or env.get("DAILYBUILD_TMP_ROOT") or dailybuild_root / "tmp").expanduser()
+        state_root = Path(env.get("DAILYBUILD_STATE_ROOT") or env.get("DAILYBUILD_STATE_ROOT") or dailybuild_root / "state").expanduser()
+        return cls(repo_root, work_root, dailybuild_root, log_root, tmp_root, state_root)
 
 
 def daily_status_file(env: dict[str, str], run_date: str) -> Path:
-    paths = AutobuildPaths.from_env(env)
-    return Path(env.get("DAILY_STATUS_FILE") or paths.state_root / f"daily_autobuild_status_{run_date}.txt")
+    paths = DailybuildPaths.from_env(env)
+    return Path(env.get("DAILY_STATUS_FILE") or paths.state_root / f"dailybuild_status_{run_date}.txt")

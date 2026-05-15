@@ -5,7 +5,7 @@ import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
 
-from autobuild import logtail
+from dailybuild import logtail
 
 
 class LogtailTests(unittest.TestCase):
@@ -15,10 +15,10 @@ class LogtailTests(unittest.TestCase):
             log = root / "logs/openwrt/v1.00/cron_runner.log"
             log.parent.mkdir(parents=True)
             log.write_text("first\nsecond\nthird\n", encoding="utf-8")
-            config = root / "autobuild_common.env"
+            config = root / "dailybuild_common.env"
             config.write_text(
-                f"AUTOBUILD_LOG_ROOT={root / 'logs'}\n"
-                f"AUTOBUILD_STATE_ROOT={root / 'state'}\n"
+                f"DAILYBUILD_LOG_ROOT={root / 'logs'}\n"
+                f"DAILYBUILD_STATE_ROOT={root / 'state'}\n"
                 f"GCT_WORK_ROOT={root}\n",
                 encoding="utf-8",
             )

@@ -1,4 +1,4 @@
-"""Python implementation of the GCT daily autobuild tools."""
+"""Python implementation of the GCT dailybuild tools."""
 
 __all__ = [
     "config",

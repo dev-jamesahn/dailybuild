@@ -1,4 +1,4 @@
-"""Native Python OpenWrt autobuild runner."""
+"""Native Python OpenWrt dailybuild runner."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from .config import AutobuildPaths, daily_status_file, merged_env
+from .config import DailybuildPaths, daily_status_file, merged_env
 from .gitinfo import last_commit
 from .status import generate_daily_status
 from .upload import safe_name
@@ -86,7 +86,7 @@ class OpenWrtBuild:
             raise SystemExit(f"Missing config file: {self.config_file}")
 
         self.env = merged_env(self.config_file, {"CONFIG_FILE": str(self.config_file)})
-        self.paths = AutobuildPaths.from_env(self.env)
+        self.paths = DailybuildPaths.from_env(self.env)
         self.run_ts = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
         self.run_date = dt.datetime.now().strftime("%Y%m%d")
         self.start_epoch = int(time.time())
@@ -97,7 +97,7 @@ class OpenWrtBuild:
         self.model_lineup = self.env.get("MODEL_LINEUP", "GDM7275X")
         self.openwrt_url = self.env.get("OPENWRT_SOURCE_REPO_URL", "https://release.gctsemi.com/openwrt")
 
-        self.repo_storage_root = Path(self.env.get("AUTOBUILD_REPO_ROOT") or self.paths.autobuild_root / "repos").expanduser()
+        self.repo_storage_root = Path(self.env.get("DAILYBUILD_REPO_ROOT") or self.paths.dailybuild_root / "repos").expanduser()
         self.clone_root = Path(self.env.get("CLONE_ROOT") or self.repo_storage_root / "openwrt/deps").expanduser()
         self.openwrt_dir = Path(self.env.get("OPENWRT_DIR") or self.repo_storage_root / f"openwrt/builds/{self.openwrt_branch}").expanduser()
         self.work_dir = Path(self.env.get("WORK_DIR") or self.paths.tmp_root / f"openwrt_{_run_user()}_{self.branch_slug}").expanduser()
@@ -168,9 +168,9 @@ class OpenWrtBuild:
     def _run_steps(self) -> None:
         log = self.logger
         assert log is not None
-        log.line(f"[INFO] OpenWrt {self.openwrt_branch} autobuild started")
+        log.line(f"[INFO] OpenWrt {self.openwrt_branch} dailybuild started")
         log.line(f"[INFO] Workspace root: {self.paths.work_root}")
-        log.line(f"[INFO] Autobuild root: {self.paths.autobuild_root}")
+        log.line(f"[INFO] Autobuild root: {self.paths.dailybuild_root}")
         log.line(f"[INFO] Run directory : {self.run_dir}")
         log.line(f"[INFO] Config file    : {self.config_file}")
         log.line(f"[INFO] Model lineup   : {self.model_lineup}")
@@ -217,13 +217,13 @@ class OpenWrtBuild:
         self._run_ext_toolchain()
         self._run_make_with_retry()
         log.line()
-        log.line(f"[INFO] OpenWrt {self.openwrt_branch} autobuild completed successfully")
+        log.line(f"[INFO] OpenWrt {self.openwrt_branch} dailybuild completed successfully")
 
     def _repo_specs(self) -> list[RepoSpec]:
         return [
-            RepoSpec("GDM", self.env.get("GDM_SOURCE_DISPLAY", "linuxos master"), self.env.get("GDM_SOURCE_CLONE_DIR", "linuxos_autobuild"), self.env.get("GDM_SOURCE_REPO_URL", "https://release.gctsemi.com/linuxos"), self.env.get("GDM_SOURCE_BRANCH", "master")),
-            RepoSpec("SBL", self.env.get("SBL_SOURCE_DISPLAY", "7275X SBL"), self.env.get("SBL_SOURCE_CLONE_DIR", "7275X_sbl_autobuild"), self.env.get("SBL_SOURCE_REPO_URL", "https://release.gctsemi.com/sbl/7275x"), self.env.get("SBL_SOURCE_BRANCH", "")),
-            RepoSpec("UBOOT", self.env.get("UBOOT_SOURCE_DISPLAY", "7275X U-Boot"), self.env.get("UBOOT_SOURCE_CLONE_DIR", "7275X_uboot_autobuild"), self.env.get("UBOOT_SOURCE_REPO_URL", "https://release.gctsemi.com/u-boot/7275x"), self.env.get("UBOOT_SOURCE_BRANCH", "")),
+            RepoSpec("GDM", self.env.get("GDM_SOURCE_DISPLAY", "linuxos master"), self.env.get("GDM_SOURCE_CLONE_DIR", "linuxos_dailybuild"), self.env.get("GDM_SOURCE_REPO_URL", "https://release.gctsemi.com/linuxos"), self.env.get("GDM_SOURCE_BRANCH", "master")),
+            RepoSpec("SBL", self.env.get("SBL_SOURCE_DISPLAY", "7275X SBL"), self.env.get("SBL_SOURCE_CLONE_DIR", "7275X_sbl_dailybuild"), self.env.get("SBL_SOURCE_REPO_URL", "https://release.gctsemi.com/sbl/7275x"), self.env.get("SBL_SOURCE_BRANCH", "")),
+            RepoSpec("UBOOT", self.env.get("UBOOT_SOURCE_DISPLAY", "7275X U-Boot"), self.env.get("UBOOT_SOURCE_CLONE_DIR", "7275X_uboot_dailybuild"), self.env.get("UBOOT_SOURCE_REPO_URL", "https://release.gctsemi.com/u-boot/7275x"), self.env.get("UBOOT_SOURCE_BRANCH", "")),
         ]
 
     def _ensure_repo_ready(self, spec: RepoSpec) -> None:

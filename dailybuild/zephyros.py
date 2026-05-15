@@ -1,4 +1,4 @@
-"""Native Python Zephyros autobuild runner."""
+"""Native Python Zephyros dailybuild runner."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ import sys
 import time
 from pathlib import Path
 
-from .config import AutobuildPaths, daily_status_file, merged_env
+from .config import DailybuildPaths, daily_status_file, merged_env
 from .gitinfo import last_commit
 from .status import generate_daily_status
 
@@ -68,7 +68,7 @@ class ZephyrosBuild:
             raise SystemExit(f"Missing config file: {self.config_file}")
 
         self.env = merged_env(self.config_file, {"CONFIG_FILE": str(self.config_file)})
-        self.paths = AutobuildPaths.from_env(self.env)
+        self.paths = DailybuildPaths.from_env(self.env)
         self.run_ts = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
         self.run_date = dt.datetime.now().strftime("%Y%m%d")
         self.start_epoch = int(time.time())
@@ -79,7 +79,7 @@ class ZephyrosBuild:
         self.config_name = self.env.get("ZEPHYROS_CONFIG_NAME", "gdm7259x_nsa")
         self.repo_url = self.env.get("ZEPHYROS_REPO_URL", "https://jamesahn@vcs.gctsemi.com/OS/Zephyros")
 
-        self.repo_storage_root = Path(self.env.get("AUTOBUILD_REPO_ROOT") or self.paths.autobuild_root / "repos").expanduser()
+        self.repo_storage_root = Path(self.env.get("DAILYBUILD_REPO_ROOT") or self.paths.dailybuild_root / "repos").expanduser()
         self.work_dir = Path(self.env.get("WORK_DIR") or self.paths.tmp_root / f"zephyros_{_run_user()}").expanduser()
         self.repo_dir = Path(self.env.get("REPO_DIR") or self.repo_storage_root / "zephyros/build").expanduser()
         self.log_root = Path(self.env.get("LOG_ROOT") or self.paths.log_root / "zephyros").expanduser()
@@ -146,9 +146,9 @@ class ZephyrosBuild:
     def _run_steps(self) -> None:
         log = self.logger
         assert log is not None
-        log.line("[INFO] Zephyros autobuild started")
+        log.line("[INFO] Zephyros dailybuild started")
         log.line(f"[INFO] Workspace root: {self.paths.work_root}")
-        log.line(f"[INFO] Autobuild root: {self.paths.autobuild_root}")
+        log.line(f"[INFO] Autobuild root: {self.paths.dailybuild_root}")
         log.line(f"[INFO] Run directory : {self.run_dir}")
         log.line(f"[INFO] Config file   : {self.config_file}")
         log.line(f"[INFO] Model lineup  : {self.model_lineup}")
@@ -186,7 +186,7 @@ class ZephyrosBuild:
         log.line("------------------------------------------")
         self._run_interactive_build()
         log.line()
-        log.line("[INFO] Zephyros autobuild completed successfully")
+        log.line("[INFO] Zephyros dailybuild completed successfully")
 
     def _run_logged(self, cmd: list[str], cwd: Path | None = None) -> None:
         assert self.logger is not None

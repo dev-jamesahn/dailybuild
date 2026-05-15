@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from autobuild.openwrt import OpenWrtBuild
+from dailybuild.openwrt import OpenWrtBuild
 
 
 class OpenWrtBuildTests(unittest.TestCase):
@@ -13,7 +13,7 @@ class OpenWrtBuildTests(unittest.TestCase):
             config = root / "openwrt.env"
             config.write_text(
                 "\n".join([
-                    f"AUTOBUILD_ROOT='{root / 'autobuild'}'",
+                    f"DAILYBUILD_ROOT='{root / 'dailybuild'}'",
                     "OPENWRT_BRANCH=master",
                     "PKG_VERSION=0.0.0",
                 ]),
@@ -30,9 +30,9 @@ class OpenWrtBuildTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             config = root / "openwrt.env"
-            config.write_text(f"AUTOBUILD_ROOT='{root / 'autobuild'}'\n", encoding="utf-8")
+            config.write_text(f"DAILYBUILD_ROOT='{root / 'dailybuild'}'\n", encoding="utf-8")
             build = OpenWrtBuild(config)
-            build.openwrt_dir = root / "autobuild/repos/openwrt/builds/v1.00"
+            build.openwrt_dir = root / "dailybuild/repos/openwrt/builds/v1.00"
             log = "\n".join([
                 "Makefile.am:282: error: '#' comment at start of rule is unportable",
                 f"make[5]: *** [Makefile:165: {build.openwrt_dir}/build_dir/target/image-gdm7275x-airspan.dtb] Error 1",
