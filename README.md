@@ -124,6 +124,33 @@ View current log tails and exit:
 ./autobuild.py tail-logs --lines 20 --no-follow
 ```
 
+Show current job / scheduler state:
+
+```bash
+./autobuild.py list-jobs
+```
+
+Show managed runtime configuration:
+
+```bash
+./autobuild.py show-config
+```
+
+Update common operational settings:
+
+```bash
+./autobuild.py set-config --mail-to jamesahn@gctsemi.com --subject-prefix "[TestPy]" --show-after
+./autobuild.py set-config --test-mail-to jamesahn@gctsemi.com --test-subject-prefix "[TestPy]"
+./autobuild.py set-config --set START_AFTER_MINUTES=1 --set TEST_ONCE_MAX_RUNTIME_MINUTES=180
+```
+
+Show summarized daily status:
+
+```bash
+./autobuild.py show-status --run-date 20260515
+./autobuild.py show-status --run-date 20260515 --raw
+```
+
 Run one target manually:
 
 ```bash
@@ -163,6 +190,14 @@ Install cron entries:
 
 ```bash
 ./autobuild.py install-cron
+```
+
+Show command help:
+
+```bash
+./autobuild.py --help
+./autobuild.py set-config --help
+./autobuild.py show-status --help
 ```
 
 The generated cron schedule starts daily build tests at `03:00`, then launches

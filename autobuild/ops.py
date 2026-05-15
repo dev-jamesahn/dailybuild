@@ -1,0 +1,175 @@
+"""Operational CLI helpers for config and status inspection."""
+
+from __future__ import annotations
+
+import shlex
+from pathlib import Path
+
+from .config import daily_status_file, load_env_file, merged_env, today
+from .status import parse_status_file
+
+
+CONFIG_GROUPS = [
+    ("Mail", [
+        "EMAIL_NOTI_ENABLED",
+        "MAIL_FROM",
+        "MAIL_FROM_NAME",
+        "MAIL_REPLY_TO",
+        "MAIL_TO",
+        "REPORT_SUBJECT_PREFIX",
+    ]),
+    ("SMTP", [
+        "SMTP_HOST",
+        "SMTP_PORT",
+        "SMTP_USER",
+        "SMTP_USE_STARTTLS",
+        "SMTP_INSECURE_TLS",
+    ]),
+    ("Paths", [
+        "AUTOBUILD_ROOT",
+        "AUTOBUILD_LOG_ROOT",
+        "AUTOBUILD_TMP_ROOT",
+        "AUTOBUILD_STATE_ROOT",
+    ]),
+    ("Samba", [
+        "SAMBA_UPLOAD_ENABLED",
+        "SAMBA_UPLOAD_URI",
+        "SAMBA_UPLOAD_UNC_ROOT",
+        "SAMBA_UPLOAD_LOCAL_DIR",
+    ]),
+    ("One-Time Test", [
+        "TEST_MAIL_TO",
+        "TEST_REPORT_SUBJECT_PREFIX",
+        "START_AFTER_MINUTES",
+        "TEST_ONCE_MAX_RUNTIME_MINUTES",
+    ]),
+]
+
+
+def show_config(args) -> int:
+    config_path = Path(getattr(args, "config", "config/autobuild_common.env")).expanduser()
+    values = load_env_file(config_path)
+    merged = merged_env(config_path)
+    print(f"Config file: {config_path}")
+    print()
+    for title, keys in CONFIG_GROUPS:
+        print(title)
+        print("-" * len(title))
+        for key in keys:
+            source = values.get(key, "")
+            effective = merged.get(key, "")
+            suffix = "" if source == effective else f"  (effective: {effective})"
+            print(f"{key}={source}{suffix}")
+        print()
+    return 0
+
+
+def set_config(args) -> int:
+    config_path = Path(getattr(args, "config", "config/autobuild_common.env")).expanduser()
+    updates = _collect_updates(args)
+    if not updates:
+        raise SystemExit("No config updates requested")
+    _update_env_file(config_path, updates)
+    print(f"[INFO] Updated config: {config_path}")
+    for key, value in updates.items():
+        print(f"{key}={value}")
+    if getattr(args, "show_after", False):
+        print()
+        show_config(args)
+    return 0
+
+
+def show_status(args) -> int:
+    run_date = getattr(args, "run_date", None) or today()
+    overrides = {"RUN_DATE": run_date}
+    if getattr(args, "status_file", None):
+        overrides["DAILY_STATUS_FILE"] = args.status_file
+    env = merged_env(getattr(args, "config", "config/autobuild_common.env"), overrides)
+    status_path = Path(getattr(args, "status_file", None) or daily_status_file(env, run_date))
+    if not status_path.exists():
+        print(f"[WARN] Status file not found: {status_path}")
+        return 1
+
+    sections = parse_status_file(status_path)
+    counts: dict[str, int] = {}
+    for section in sections:
+        result = section.fields.get("Result") or section.fields.get("Status") or "UNKNOWN"
+        counts[result] = counts.get(result, 0) + 1
+
+    print(f"Status file: {status_path}")
+    print(f"Run date   : {run_date}")
+    if counts:
+        summary = ", ".join(f"{key}={counts[key]}" for key in sorted(counts))
+        print(f"Summary    : {summary}")
+    else:
+        print("Summary    : no sections found")
+    print()
+    for section in sections:
+        result = section.fields.get("Result") or section.fields.get("Status") or "UNKNOWN"
+        duration = section.fields.get("Duration", "")
+        run_ts = section.fields.get("Run ts", "")
+        fail_reason = section.fields.get("Fail reason", "")
+        print(f"[{section.name}] {result}")
+        if run_ts:
+            print(f"  run_ts   : {run_ts}")
+        if duration:
+            print(f"  duration : {duration}")
+        if fail_reason:
+            print(f"  fail     : {fail_reason}")
+    if getattr(args, "raw", False):
+        print()
+        print("Raw Status")
+        print("----------")
+        print(status_path.read_text(encoding="utf-8"), end="")
+    return 0
+
+
+def _collect_updates(args) -> dict[str, str]:
+    updates: dict[str, str] = {}
+    mapping = {
+        "mail_to": "MAIL_TO",
+        "subject_prefix": "REPORT_SUBJECT_PREFIX",
+        "test_mail_to": "TEST_MAIL_TO",
+        "test_subject_prefix": "TEST_REPORT_SUBJECT_PREFIX",
+        "samba_local_dir": "SAMBA_UPLOAD_LOCAL_DIR",
+        "samba_unc_root": "SAMBA_UPLOAD_UNC_ROOT",
+        "email_noti_enabled": "EMAIL_NOTI_ENABLED",
+    }
+    for attr, key in mapping.items():
+        value = getattr(args, attr, None)
+        if value is not None:
+            updates[key] = value
+    for item in getattr(args, "set_values", []) or []:
+        if "=" not in item:
+            raise SystemExit(f"Invalid --set value: {item} (expected KEY=VALUE)")
+        key, value = item.split("=", 1)
+        key = key.strip()
+        if not key:
+            raise SystemExit(f"Invalid --set key in: {item}")
+        updates[key] = value
+    return updates
+
+
+def _update_env_file(path: Path, updates: dict[str, str]) -> None:
+    if not path.exists():
+        raise SystemExit(f"Missing config file: {path}")
+    lines = path.read_text(encoding="utf-8").splitlines()
+    remaining = dict(updates)
+    rendered: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in line:
+            rendered.append(line)
+            continue
+        key, _ = line.split("=", 1)
+        key = key.strip()
+        if key in remaining:
+            rendered.append(f"{key}={shlex.quote(str(remaining.pop(key)))}")
+        else:
+            rendered.append(line)
+    if remaining:
+        if rendered and rendered[-1] != "":
+            rendered.append("")
+        for key, value in remaining.items():
+            rendered.append(f"{key}={shlex.quote(str(value))}")
+    path.write_text("\n".join(rendered) + "\n", encoding="utf-8")

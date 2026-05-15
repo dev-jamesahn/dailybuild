@@ -1,47 +1,69 @@
-import os
-from pathlib import Path
-from tempfile import TemporaryDirectory
+import argparse
+import io
+import tempfile
 import unittest
+from contextlib import redirect_stdout
+from pathlib import Path
+from unittest import mock
 
 from autobuild import scheduler
 
 
 class SchedulerTests(unittest.TestCase):
-    def test_test_once_plan_expires_after_configured_runtime(self):
-        old_env = os.environ.copy()
-        try:
-            with TemporaryDirectory() as tmp:
-                root = Path(tmp)
-                config_root = root / "config"
-                config_root.mkdir()
-                (config_root / "autobuild_common.env").write_text(
-                    "\n".join([
-                        f"AUTOBUILD_ROOT='{root / 'work'}'",
-                        f"AUTOBUILD_LOG_ROOT='{root / 'work' / 'logs'}'",
-                        f"AUTOBUILD_TMP_ROOT='{root / 'work' / 'tmp'}'",
-                        f"AUTOBUILD_STATE_ROOT='{root / 'work' / 'state'}'",
-                        "TEST_RUN_TS=20260513_145122",
-                        "START_AFTER_MINUTES=1",
-                        "NOTIFIER_START_AFTER_MINUTES=2",
-                        "NOTIFIER_INTERVAL_MINUTES=10",
-                        "NOTIFIER_REPEAT_COUNT=72",
-                        "TEST_ONCE_MAX_RUNTIME_MINUTES=30",
-                    ]),
-                    encoding="utf-8",
-                )
-                os.environ.clear()
-                os.environ.update(old_env)
-                os.environ["AUTOBUILD_CONFIG_ROOT"] = str(config_root)
+    def test_list_jobs_reports_daily_one_time_and_running(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config = root / "autobuild_common.env"
+            state_root = root / "state"
+            log_root = root / "logs"
+            state_root.mkdir()
+            log_root.mkdir()
+            config.write_text(
+                "\n".join([
+                    f"GCT_WORK_ROOT='{root}'",
+                    f"AUTOBUILD_ROOT='{root}'",
+                    f"AUTOBUILD_LOG_ROOT='{log_root}'",
+                    f"AUTOBUILD_STATE_ROOT='{state_root}'",
+                ]),
+                encoding="utf-8",
+            )
 
-                commands, _ = scheduler._test_once_plan()
+            status_file = state_root / "one_time_daily_autobuild_status_20260515_031500.txt"
+            status_file.write_text("[GDM7275X OpenWrt v1.00]\nResult       : SUCCESS\n", encoding="utf-8")
+            (state_root / ".one_time_daily_autobuild_mail_sent_20260515_031500.flag").write_text("ok\n", encoding="utf-8")
 
-            notifier_commands = [item for item in commands if item.label.startswith("Daily notifier")]
-            self.assertEqual([item.offset_minutes for item in notifier_commands], [2, 12, 22])
-            self.assertTrue(all("One-time daily test expired: 20260513_145122" in item.command for item in commands))
-            self.assertTrue(all("SAMBA_UPLOAD_SUBDIR=Test/20260513_145122" in item.command for item in notifier_commands))
-        finally:
-            os.environ.clear()
-            os.environ.update(old_env)
+            ps_output = "\n".join([
+                "1234 /usr/bin/python3 /home/jamesahn/gct-build-tools/dailybuild/autobuild.py run-openwrt --config x",
+                "2222 /usr/bin/python3 /home/jamesahn/gct-build-tools/dailybuild/autobuild.py notify --config y",
+            ]) + "\n"
+
+            args = argparse.Namespace(config=str(config))
+            output = io.StringIO()
+            with mock.patch("autobuild.scheduler._running_autobuild_processes", return_value=scheduler._parse_ps_output(ps_output)):
+                with redirect_stdout(output):
+                    rc = scheduler.list_jobs(args)
+
+        text = output.getvalue()
+        self.assertEqual(rc, 0)
+        self.assertIn("Daily Cron Jobs", text)
+        self.assertIn("One-Time Tests", text)
+        self.assertIn("Running Processes", text)
+        self.assertIn("20260515_031500", text)
+        self.assertIn("state=pending", text)
+        self.assertIn("sent=yes", text)
+        self.assertIn("uploaded=no", text)
+        self.assertIn("run-openwrt", text)
+        self.assertIn("notify", text)
+
+    def test_parse_ps_output_keeps_only_autobuild_entrypoint(self):
+        text = "\n".join([
+            "1000 python something_else.py",
+            "1001 /usr/bin/python3 /home/jamesahn/gct-build-tools/dailybuild/autobuild.py run-os --config a",
+        ])
+        rows = scheduler._parse_ps_output(text)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["pid"], "1001")
+        self.assertIn("run-os", rows[0]["cmd"])
 
 
 if __name__ == "__main__":

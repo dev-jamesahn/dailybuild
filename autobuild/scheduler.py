@@ -228,5 +228,98 @@ def test_once(args) -> int:
     return _schedule(commands, scheduler_log, getattr(args, "dry_run", False))
 
 
+def list_jobs(args) -> int:
+    env = merged_env(getattr(args, "config", "config/autobuild_common.env"))
+    paths = AutobuildPaths.from_env(env)
+    config_root = _config_root(Path(__file__).resolve().parents[1])
+
+    print("Daily Cron Jobs")
+    print("---------------")
+    for schedule, subcommand, config_name, log_rel, tag in _daily_cron_jobs():
+        print(f"{schedule}  {subcommand:12}  {config_name}  -> {paths.log_root / log_rel} {tag}")
+    print(f"*/10 * * * *  {'notify':12}  autobuild_common.env -> {paths.log_root / 'notifier/daily_autobuild_mail_notifier.log'} # DAILY_AUTOBUILD_MAIL_NOTIFIER")
+    print()
+
+    print("One-Time Tests")
+    print("--------------")
+    one_time_rows = _one_time_test_rows(paths.state_root)
+    if not one_time_rows:
+        print("[none]")
+    else:
+        for row in one_time_rows:
+            state = "completed" if row["sent_exists"] and row["upload_exists"] else "pending"
+            print(
+                f"{row['test_run_ts']}  state={state}  run_date={row['run_date']}  "
+                f"status={'yes' if row['status_exists'] else 'no'}  "
+                f"sent={'yes' if row['sent_exists'] else 'no'}  "
+                f"uploaded={'yes' if row['upload_exists'] else 'no'}"
+            )
+            print(f"  status_file: {row['status_file']}")
+    scheduler_log = paths.log_root / "notifier/one_time_daily_test_scheduler.log"
+    if scheduler_log.exists():
+        print(f"  scheduler_log: {scheduler_log}")
+    print()
+
+    print("Running Processes")
+    print("-----------------")
+    running = _running_autobuild_processes()
+    if not running:
+        print("[none]")
+    else:
+        for row in running:
+            print(f"{row['pid']:>6}  {row['command_name']:12}  {row['cmd']}")
+    return 0
+
+
+def _one_time_test_rows(state_root: Path) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for status_file in sorted(state_root.glob("one_time_daily_autobuild_status_*.txt")):
+        test_run_ts = status_file.stem.removeprefix("one_time_daily_autobuild_status_")
+        run_date = test_run_ts.split("_", 1)[0]
+        sent_flag = state_root / f".one_time_daily_autobuild_mail_sent_{test_run_ts}.flag"
+        upload_flag = state_root / f".one_time_daily_autobuild_logs_uploaded_{test_run_ts}.flag"
+        rows.append({
+            "test_run_ts": test_run_ts,
+            "run_date": run_date,
+            "status_file": status_file,
+            "status_exists": status_file.exists(),
+            "sent_exists": sent_flag.exists(),
+            "upload_exists": upload_flag.exists(),
+        })
+    rows.sort(key=lambda row: str(row["test_run_ts"]), reverse=True)
+    return rows
+
+
+def _running_autobuild_processes() -> list[dict[str, str]]:
+    proc = subprocess.run(["ps", "-eo", "pid=,args="], text=True, capture_output=True, check=True)
+    return _parse_ps_output(proc.stdout)
+
+
+def _parse_ps_output(text: str) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        parts = line.split(None, 1)
+        if len(parts) != 2:
+            continue
+        pid, cmd = parts
+        if "autobuild.py" not in cmd:
+            continue
+        if " list-jobs" in cmd:
+            continue
+        cmd_parts = cmd.split()
+        command_name = "autobuild.py"
+        try:
+            index = next(i for i, part in enumerate(cmd_parts) if part.endswith("autobuild.py"))
+            if index + 1 < len(cmd_parts):
+                command_name = cmd_parts[index + 1]
+        except StopIteration:
+            pass
+        rows.append({"pid": pid, "cmd": cmd, "command_name": command_name})
+    return rows
+
+
 def _config_root(repo_root: Path) -> Path:
     return Path(os.environ.get("AUTOBUILD_CONFIG_ROOT", repo_root / "config")).expanduser()
