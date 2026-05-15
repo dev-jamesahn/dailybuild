@@ -24,7 +24,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     run_os = sub.add_parser("run-os", help="Run an OS autobuild")
     run_os.add_argument("--config", required=True, help="Path to OS env config")
-    run_os.add_argument("--dry-run", action="store_true", help="Print the legacy command without running it")
+    run_os.add_argument("--dry-run", action="store_true", help="Print the OS run settings without running it")
     run_os.set_defaults(func=runner.run_os)
 
     run_zephyros = sub.add_parser("run-zephyros", help="Run a Zephyros autobuild")

@@ -22,30 +22,10 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(openwrt_lock.name, "build_openwrt_v1.00_autobuild.lock")
         self.assertEqual(linuxos_lock.name, "build_gdm7275x_linuxos_master_autobuild.lock")
 
-    def test_run_legacy_invokes_shell_wrapper_through_login_shell(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            legacy = root / "legacy"
-            legacy.mkdir()
-            script = legacy / "os_autobuild.sh"
-            script.write_text("#!/bin/bash\n", encoding="utf-8")
-            script.chmod(0o755)
-            config = root / "openwrt.env"
-            config.write_text(
-                "\n".join([
-                    f"LEGACY_AUTOBUILD_DIR='{legacy}'",
-                    f"AUTOBUILD_TMP_ROOT='{root / 'tmp'}'",
-                    "PKG_VERSION=0.0.0",
-                ]),
-                encoding="utf-8",
-            )
-
-            with mock.patch.dict("os.environ", {}, clear=True):
-                with mock.patch("autobuild.runner.subprocess.call", return_value=0) as call:
-                    rc = runner.run_os(SimpleNamespace(config=str(config), dry_run=False))
+    def test_run_zephyros_delegates_to_native_runner(self):
+        with mock.patch("autobuild.runner.zephyros.run", return_value=0) as run:
+            args = SimpleNamespace(config="/tmp/zephyros.env", dry_run=False)
+            rc = runner.run_zephyros(args)
 
         self.assertEqual(rc, 0)
-        call.assert_called_once()
-        self.assertEqual(call.call_args.args[0], ["/bin/bash", "-lc", str(script)])
-        self.assertEqual(call.call_args.kwargs["env"]["CONFIG_FILE"], str(config))
-        self.assertNotIn("PKG_VERSION", call.call_args.kwargs["env"])
+        run.assert_called_once_with(args)

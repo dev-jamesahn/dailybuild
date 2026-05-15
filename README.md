@@ -3,9 +3,10 @@
 Python migration of the GCT daily autobuild tools.
 
 The current goal is to validate the Python flow under the `jamesahn` account
-before replacing the existing daily autobuild operation. The build itself still
-uses the proven shell wrappers, while scheduling, status parsing, upload, mail,
-and operational checks are moving to Python first.
+before replacing the existing daily autobuild operation. The main build entry
+points, scheduling, status parsing, upload, mail, and operational checks now
+run from Python while the legacy shell repository remains available as the
+reference implementation during the transition.
 
 ## Current Status
 
@@ -14,7 +15,7 @@ Implemented:
 - Single Python entrypoint: `autobuild.py`
 - One-time daily test scheduler: `test-once`
 - Cron entry generator: `install-cron --dry-run`
-- Legacy build wrappers: `run-openwrt`, `run-os`, `run-zephyros`
+- Native Python build runners: `run-openwrt`, `run-os`, `run-zephyros`
 - Per-target build lock guards
 - Combined live log viewer: `tail-logs`
 - Daily status generation from `latest_summary.env`
@@ -48,7 +49,7 @@ This repository is intended to run under:
 /home/jamesahn/gct-build-tools/dailybuild
 ```
 
-The existing shell wrappers are still called from:
+The legacy reference repository remains available at:
 
 ```text
 /home/jamesahn/gct-build-tools/autobuild

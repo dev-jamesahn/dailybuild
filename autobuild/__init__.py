@@ -6,8 +6,10 @@ __all__ = [
     "lock",
     "mail",
     "openwrt",
+    "osbuild",
     "runner",
     "scheduler",
     "status",
     "upload",
+    "zephyros",
 ]

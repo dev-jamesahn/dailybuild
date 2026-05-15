@@ -95,8 +95,3 @@ class AutobuildPaths:
 def daily_status_file(env: dict[str, str], run_date: str) -> Path:
     paths = AutobuildPaths.from_env(env)
     return Path(env.get("DAILY_STATUS_FILE") or paths.state_root / f"daily_autobuild_status_{run_date}.txt")
-
-
-def legacy_autobuild_dir(env: dict[str, str] | None = None) -> Path:
-    env = env or os.environ
-    return Path(env.get("LEGACY_AUTOBUILD_DIR", "/home/jamesahn/gct-build-tools/autobuild")).expanduser()
