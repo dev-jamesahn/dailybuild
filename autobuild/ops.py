@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import shlex
 from pathlib import Path
+from types import SimpleNamespace
 
 from .config import daily_status_file, load_env_file, merged_env, today
 from .status import parse_status_file
+from . import scheduler
 
 
 CONFIG_GROUPS = [
@@ -45,6 +47,16 @@ CONFIG_GROUPS = [
     ]),
 ]
 
+INTERACTIVE_CONFIG_OPTIONS = [
+    ("MAIL_TO", "Mail recipients"),
+    ("REPORT_SUBJECT_PREFIX", "Mail subject prefix"),
+    ("TEST_MAIL_TO", "One-time test mail recipients"),
+    ("TEST_REPORT_SUBJECT_PREFIX", "One-time test subject prefix"),
+    ("SAMBA_UPLOAD_LOCAL_DIR", "Samba local dir"),
+    ("SAMBA_UPLOAD_UNC_ROOT", "Samba UNC root"),
+    ("EMAIL_NOTI_ENABLED", "Email notification enabled (0/1)"),
+]
+
 
 def show_config(args) -> int:
     config_path = Path(getattr(args, "config", "config/autobuild_common.env")).expanduser()
@@ -69,14 +81,7 @@ def set_config(args) -> int:
     updates = _collect_updates(args)
     if not updates:
         raise SystemExit("No config updates requested")
-    _update_env_file(config_path, updates)
-    print(f"[INFO] Updated config: {config_path}")
-    for key, value in updates.items():
-        print(f"{key}={value}")
-    if getattr(args, "show_after", False):
-        print()
-        show_config(args)
-    return 0
+    return _apply_config_updates(config_path, updates, getattr(args, "show_after", False))
 
 
 def show_status(args) -> int:
@@ -124,6 +129,40 @@ def show_status(args) -> int:
     return 0
 
 
+def interactive(args) -> int:
+    config_path = Path(getattr(args, "config", "config/autobuild_common.env")).expanduser()
+    while True:
+        print("Interactive Operations")
+        print("----------------------")
+        print("1. Show config")
+        print("2. Update config")
+        print("3. Show status")
+        print("4. List jobs")
+        print("5. Schedule one-time test")
+        print("6. Help summary")
+        print("0. Exit")
+        choice = _prompt("Select menu", "0").strip()
+        print()
+        if choice == "1":
+            show_config(SimpleNamespace(config=str(config_path)))
+        elif choice == "2":
+            _interactive_update_config(config_path)
+        elif choice == "3":
+            _interactive_show_status(config_path)
+        elif choice == "4":
+            scheduler.list_jobs(SimpleNamespace(config=str(config_path)))
+        elif choice == "5":
+            _interactive_schedule_one_time(config_path)
+        elif choice == "6":
+            _print_help_summary()
+        elif choice == "0":
+            print("Bye.")
+            return 0
+        else:
+            print(f"[WARN] Unknown menu: {choice}")
+        print()
+
+
 def _collect_updates(args) -> dict[str, str]:
     updates: dict[str, str] = {}
     mapping = {
@@ -148,6 +187,165 @@ def _collect_updates(args) -> dict[str, str]:
             raise SystemExit(f"Invalid --set key in: {item}")
         updates[key] = value
     return updates
+
+
+def _apply_config_updates(config_path: Path, updates: dict[str, str], show_after: bool) -> int:
+    _update_env_file(config_path, updates)
+    print(f"[INFO] Updated config: {config_path}")
+    for key, value in updates.items():
+        print(f"{key}={value}")
+    if show_after:
+        print()
+        show_config(SimpleNamespace(config=str(config_path)))
+    return 0
+
+
+def _interactive_update_config(config_path: Path) -> None:
+    current = load_env_file(config_path)
+    print("Update Config")
+    print("-------------")
+    for index, (key, label) in enumerate(INTERACTIVE_CONFIG_OPTIONS, start=1):
+        print(f"{index}. {label} [{key}] = {current.get(key, '')}")
+    extra_index = len(INTERACTIVE_CONFIG_OPTIONS) + 1
+    print(f"{extra_index}. Generic KEY=VALUE")
+    print("0. Back")
+    choice = _prompt("Select config item", "0").strip()
+    if choice == "0":
+        return
+    if choice == str(extra_index):
+        raw = _prompt("Enter KEY=VALUE", "").strip()
+        if not raw:
+            print("[INFO] No update entered")
+            return
+        if "=" not in raw:
+            print("[WARN] Expected KEY=VALUE")
+            return
+        key, value = raw.split("=", 1)
+        key = key.strip()
+        if not key:
+            print("[WARN] Empty key")
+            return
+        _apply_config_updates(config_path, {key: value}, show_after=False)
+        return
+    try:
+        selected = int(choice)
+    except ValueError:
+        print(f"[WARN] Invalid selection: {choice}")
+        return
+    if not 1 <= selected <= len(INTERACTIVE_CONFIG_OPTIONS):
+        print(f"[WARN] Invalid selection: {choice}")
+        return
+    key, label = INTERACTIVE_CONFIG_OPTIONS[selected - 1]
+    default = current.get(key, "")
+    value = _prompt(f"{label} [{key}]", default)
+    if value == default:
+        print("[INFO] No change")
+        return
+    _apply_config_updates(config_path, {key: value}, show_after=False)
+
+
+def _interactive_show_status(config_path: Path) -> None:
+    run_date = _prompt("Run date (YYYYMMDD)", today()).strip() or today()
+    env = merged_env(str(config_path), {"RUN_DATE": run_date})
+    status_path = Path(daily_status_file(env, run_date))
+    if not status_path.exists():
+        print(f"[WARN] Status file not found: {status_path}")
+        return
+
+    sections = parse_status_file(status_path)
+    counts: dict[str, int] = {}
+    failed_sections: list[str] = []
+    for section in sections:
+        result = section.fields.get("Result") or section.fields.get("Status") or "UNKNOWN"
+        counts[result] = counts.get(result, 0) + 1
+        if result == "FAIL":
+            failed_sections.append(section.name)
+
+    print(f"Status file: {status_path}")
+    summary = ", ".join(f"{key}={counts[key]}" for key in sorted(counts)) if counts else "no sections found"
+    print(f"Summary    : {summary}")
+    if failed_sections:
+        print("Failed     : " + ", ".join(failed_sections))
+    print()
+    for index, section in enumerate(sections, start=1):
+        result = section.fields.get("Result") or section.fields.get("Status") or "UNKNOWN"
+        duration = section.fields.get("Duration", "")
+        run_ts = section.fields.get("Run ts", "")
+        fail_reason = section.fields.get("Fail reason", "")
+        line = f"{index}. [{section.name}] {result}"
+        if duration:
+            line += f"  duration={duration}"
+        if run_ts:
+            line += f"  run_ts={run_ts}"
+        print(line)
+        if fail_reason:
+            print(f"   fail={fail_reason}")
+
+    print()
+    choice = _prompt("Detail view: section number, 'f' for fails, 'r' for raw, Enter to continue", "")
+    choice = choice.strip().lower()
+    if not choice:
+        return
+    if choice == "r":
+        print()
+        print("Raw Status")
+        print("----------")
+        print(status_path.read_text(encoding="utf-8"), end="")
+        return
+    targets: list[object]
+    if choice == "f":
+        targets = [section for section in sections if (section.fields.get("Result") or section.fields.get("Status") or "UNKNOWN") == "FAIL"]
+        if not targets:
+            print("[INFO] No failed sections")
+            return
+    else:
+        try:
+            selected = int(choice)
+        except ValueError:
+            print(f"[WARN] Invalid selection: {choice}")
+            return
+        if not 1 <= selected <= len(sections):
+            print(f"[WARN] Invalid selection: {choice}")
+            return
+        targets = [sections[selected - 1]]
+
+    for section in targets:
+        print()
+        print(f"[{section.name}]")
+        print("-" * (len(section.name) + 2))
+        for key, value in section.fields.items():
+            print(f"{key}: {value}")
+        if section.git_log:
+            print("Git log:")
+            for line in section.git_log:
+                print(f"  {line}")
+
+
+def _interactive_schedule_one_time(config_path: Path) -> None:
+    dry_run = _prompt("Dry-run only? (Y/n)", "y").strip().lower() not in {"n", "no"}
+    if not dry_run:
+        confirmed = _prompt("Schedule one-time test now? (y/N)", "n").strip().lower() in {"y", "yes"}
+        if not confirmed:
+            print("[INFO] One-time scheduling cancelled")
+            return
+    scheduler.test_once(SimpleNamespace(config=str(config_path), dry_run=dry_run))
+
+
+def _print_help_summary() -> None:
+    print("Quick Commands")
+    print("--------------")
+    print("show-config               Show managed configuration")
+    print("set-config --mail-to ...  Update config values")
+    print("show-status --run-date    Show daily build summary")
+    print("list-jobs                 Show cron, one-time state, and running processes")
+    print("test-once                 Schedule a one-time full test")
+    print("tail-logs                 Follow all cron logs")
+
+
+def _prompt(label: str, default: str) -> str:
+    suffix = f" [{default}]" if default else ""
+    value = input(f"{label}{suffix}: ")
+    return value if value.strip() else default
 
 
 def _update_env_file(path: Path, updates: dict[str, str]) -> None:

@@ -136,6 +136,19 @@ Show managed runtime configuration:
 ./autobuild.py show-config
 ```
 
+Launch the interactive operations menu:
+
+```bash
+./autobuild.py interactive
+```
+
+Inside `interactive`, you can:
+
+- view current config
+- update common config values without editing files directly
+- view daily status for a run date
+- view current cron / one-time / running job state
+
 Update common operational settings:
 
 ```bash

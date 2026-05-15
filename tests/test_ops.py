@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
+from unittest import mock
 
 from autobuild import ops
 
@@ -97,6 +98,79 @@ class OpsTests(unittest.TestCase):
         self.assertIn("Summary    : FAIL=1, SUCCESS=1", text)
         self.assertIn("[GDM7275X OpenWrt v1.00] FAIL", text)
         self.assertIn("fail     : build failed", text)
+
+    def test_interactive_exits_immediately(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config = Path(tmp) / "autobuild_common.env"
+            config.write_text("", encoding="utf-8")
+            output = io.StringIO()
+            with mock.patch("builtins.input", side_effect=["0"]):
+                with redirect_stdout(output):
+                    rc = ops.interactive(argparse.Namespace(config=str(config)))
+
+        text = output.getvalue()
+        self.assertEqual(rc, 0)
+        self.assertIn("Interactive Operations", text)
+        self.assertIn("Bye.", text)
+
+    def test_interactive_updates_mail_to(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config = Path(tmp) / "autobuild_common.env"
+            config.write_text("MAIL_TO='old@gctsemi.com'\n", encoding="utf-8")
+            output = io.StringIO()
+            with mock.patch("builtins.input", side_effect=["2", "1", "new@gctsemi.com", "0"]):
+                with redirect_stdout(output):
+                    rc = ops.interactive(argparse.Namespace(config=str(config)))
+
+            text = config.read_text(encoding="utf-8")
+
+        self.assertEqual(rc, 0)
+        self.assertIn("MAIL_TO=new@gctsemi.com", text)
+
+    def test_interactive_schedule_one_time_dry_run(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config = Path(tmp) / "autobuild_common.env"
+            config.write_text("", encoding="utf-8")
+            output = io.StringIO()
+            with mock.patch("autobuild.ops.scheduler.test_once", return_value=0) as test_once:
+                with mock.patch("builtins.input", side_effect=["5", "y", "0"]):
+                    with redirect_stdout(output):
+                        rc = ops.interactive(argparse.Namespace(config=str(config)))
+
+        self.assertEqual(rc, 0)
+        test_once.assert_called_once()
+        self.assertTrue(test_once.call_args.args[0].dry_run)
+
+    def test_interactive_show_status_section_detail(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config = root / "autobuild_common.env"
+            state_root = root / "state"
+            state_root.mkdir()
+            config.write_text(f"AUTOBUILD_STATE_ROOT='{state_root}'\n", encoding="utf-8")
+            status_file = state_root / "daily_autobuild_status_20260515.txt"
+            status_file.write_text(
+                "\n".join([
+                    "[GDM7275X OpenWrt v1.00]",
+                    "Result       : FAIL",
+                    "Duration     : 00:10:00",
+                    "Run ts       : 20260515_030000",
+                    "Fail reason  : build failed",
+                    "Git log      :",
+                    "  commit : abc123",
+                ]) + "\n",
+                encoding="utf-8",
+            )
+            output = io.StringIO()
+            with mock.patch("builtins.input", side_effect=["3", "20260515", "1", "0"]):
+                with redirect_stdout(output):
+                    rc = ops.interactive(argparse.Namespace(config=str(config)))
+
+        text = output.getvalue()
+        self.assertEqual(rc, 0)
+        self.assertIn("Failed     : GDM7275X OpenWrt v1.00", text)
+        self.assertIn("Result: FAIL", text)
+        self.assertIn("Git log:", text)
 
 
 if __name__ == "__main__":

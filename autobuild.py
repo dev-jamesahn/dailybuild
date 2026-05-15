@@ -29,7 +29,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     run_zephyros = sub.add_parser("run-zephyros", help="Run a Zephyros autobuild")
     run_zephyros.add_argument("--config", required=True, help="Path to Zephyros env config")
-    run_zephyros.add_argument("--dry-run", action="store_true", help="Print the legacy command without running it")
+    run_zephyros.add_argument("--dry-run", action="store_true", help="Print the Zephyros run settings without running it")
     run_zephyros.set_defaults(func=runner.run_zephyros)
 
     upload_cmd = sub.add_parser("upload", help="Upload daily logs and images")
@@ -72,6 +72,10 @@ def build_parser() -> argparse.ArgumentParser:
     show_status.add_argument("--status-file", help="Override daily status file path")
     show_status.add_argument("--raw", action="store_true", help="Print the raw status file after the summary")
     show_status.set_defaults(func=ops.show_status)
+
+    interactive = sub.add_parser("interactive", help="Run the interactive operations menu")
+    interactive.add_argument("--config", default="config/autobuild_common.env")
+    interactive.set_defaults(func=ops.interactive)
 
     status = sub.add_parser("status", help="Generate a daily status file from latest summaries")
     status.add_argument("--run-date", help="Run date in YYYYMMDD format")
