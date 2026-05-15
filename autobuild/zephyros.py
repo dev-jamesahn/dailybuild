@@ -19,7 +19,7 @@ from .gitinfo import last_commit
 from .status import generate_daily_status
 
 
-PROMPT_MARKER = "__AUTOBUILD_PROMPT__ "
+SHELL_PROMPT_RE = re.compile(r"(?m)[$#] $")
 SELECT_PROMPT_RE = re.compile(r"Select \[[0-9-]+\]>>")
 BUILD_RC_RE = re.compile(r"__BUILD_RC__:(\d+)")
 ERROR_RE = re.compile(r"error:|failed|No such file or directory|cannot find|undefined reference|ninja: build stopped|CMake Error", re.IGNORECASE)
@@ -212,7 +212,7 @@ class ZephyrosBuild:
         env = dict(os.environ)
         env.setdefault("TERM", "xterm")
         proc = subprocess.Popen(
-            ["bash", "--noprofile", "--norc", "-i"],
+            ["bash"],
             cwd=self.repo_dir,
             stdin=slave_fd,
             stdout=slave_fd,
@@ -223,18 +223,17 @@ class ZephyrosBuild:
         os.close(slave_fd)
         buffer = ""
         try:
-            self._shell_send(master_fd, f"export PS1='{PROMPT_MARKER}'\n")
-            buffer = self._read_until(master_fd, proc, [re.escape(PROMPT_MARKER)], timeout=30, extra_path=None)
+            buffer = self._read_until(master_fd, proc, [SHELL_PROMPT_RE.pattern], timeout=30, extra_path=None)
 
             self._shell_send(master_fd, f"cd -- {shlex.quote(str(self.repo_dir))}\n")
-            buffer = self._read_until(master_fd, proc, [re.escape(PROMPT_MARKER)], timeout=30, extra_path=None, buffer=buffer)
+            buffer = self._read_until(master_fd, proc, [SHELL_PROMPT_RE.pattern], timeout=30, extra_path=None, buffer=buffer)
 
             source_cmd = f"source ./build_config.sh {shlex.quote(self.pkg_version)}\n"
             self._shell_send(master_fd, source_cmd)
             buffer = self._read_until(
                 master_fd,
                 proc,
-                [SELECT_PROMPT_RE.pattern, re.escape(PROMPT_MARKER)],
+                [SELECT_PROMPT_RE.pattern],
                 timeout=120,
                 extra_path=None,
                 buffer=buffer,
@@ -244,7 +243,7 @@ class ZephyrosBuild:
                 raise RuntimeError(self.fail_reason)
 
             self._shell_send(master_fd, f"{self.config_select}\n")
-            buffer = self._read_until(master_fd, proc, [re.escape(PROMPT_MARKER)], timeout=120, extra_path=None, buffer=buffer)
+            buffer = self._read_until(master_fd, proc, [SHELL_PROMPT_RE.pattern], timeout=120, extra_path=None, buffer=buffer)
 
             build_cmd = f"set -o pipefail; ninja 2>&1 | tee -a {shlex.quote(str(self.verbose_log))}; printf '\\n__BUILD_RC__:%s\\n' $?\n"
             self._shell_send(master_fd, build_cmd)

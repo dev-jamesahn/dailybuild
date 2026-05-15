@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from autobuild.zephyros import ZephyrosBuild
 
@@ -43,7 +44,7 @@ class ZephyrosBuildTests(unittest.TestCase):
             )
             build = ZephyrosBuild(config)
 
-            with unittest.mock.patch("sys.stdout.write") as write:
+            with mock.patch("sys.stdout.write") as write:
                 rc = build.dry_run()
 
         self.assertEqual(rc, 0)
