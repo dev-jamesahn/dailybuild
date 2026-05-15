@@ -75,9 +75,9 @@ def build_html(status_file: Path, subject: str, run_date: str, samba_unc_root: s
         if failure_analysis:
             details.append(f"<div><strong>Failure analysis:</strong> {escape(failure_analysis)}</div>")
         if log_path:
-            details.append(f"<div><strong>Log PATH:</strong> <span style='font-family:monospace;color:#0b63ce;'>{escape(log_path)}</span></div>")
+            details.append(f"<div><strong>Log :</strong> <span style='font-family:monospace;color:#0b63ce;'>{escape(log_path)}</span></div>")
         if image_path:
-            details.append(f"<div><strong>Image PATH:</strong> <span style='font-family:monospace;color:#0b63ce;'>{escape(image_path)}</span></div>")
+            details.append(f"<div><strong>Image :</strong> <span style='font-family:monospace;color:#0b63ce;'>{escape(image_path)}</span></div>")
         card = (
             "<div style='border:1px solid #e4e7ec;border-radius:8px;padding:14px 16px;background:#ffffff;margin:10px 0 0 18px;'>"
             "<div style='display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px;'>"

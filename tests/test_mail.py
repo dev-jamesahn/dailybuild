@@ -43,6 +43,8 @@ class MailTests(unittest.TestCase):
 
             html = build_html(status, "[TestPy] Report", "20260513", r"K:\ENG\ENG05\CS_team\James", Path("Test/20260513_145122"))
 
+        self.assertIn("<strong>Log :</strong>", html)
+        self.assertIn("<strong>Image :</strong>", html)
         self.assertIn(r"K:\ENG\ENG05\CS_team\James\Test\20260513_145122\GDM7275X\linuxos_master\Log", html)
 
 
