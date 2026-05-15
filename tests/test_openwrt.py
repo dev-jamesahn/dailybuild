@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from dailybuild.openwrt import OpenWrtBuild
+from core.openwrt import OpenWrtBuild
 
 
 class OpenWrtBuildTests(unittest.TestCase):

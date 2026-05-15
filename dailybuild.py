@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from dailybuild import logtail, mail, ops, runner, scheduler, status as status_mod, upload
+from core import logtail, mail, ops, runner, scheduler, status as status_mod, upload
 
 
 def build_parser() -> argparse.ArgumentParser:

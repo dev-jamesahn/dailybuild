@@ -3,7 +3,7 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import unittest
 
-from dailybuild import upload
+from core import upload
 
 
 class UploadTests(unittest.TestCase):

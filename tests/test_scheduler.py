@@ -6,7 +6,7 @@ from contextlib import redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from dailybuild import scheduler
+from core import scheduler
 
 
 class SchedulerTests(unittest.TestCase):
@@ -39,7 +39,7 @@ class SchedulerTests(unittest.TestCase):
 
             args = argparse.Namespace(config=str(config))
             output = io.StringIO()
-            with mock.patch("dailybuild.scheduler._running_dailybuild_processes", return_value=scheduler._parse_ps_output(ps_output)):
+            with mock.patch("core.scheduler._running_dailybuild_processes", return_value=scheduler._parse_ps_output(ps_output)):
                 with redirect_stdout(output):
                     rc = scheduler.list_jobs(args)
 

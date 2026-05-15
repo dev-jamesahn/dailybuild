@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from dailybuild.zephyros import ZephyrosBuild
+from core.zephyros import ZephyrosBuild
 
 
 class ZephyrosBuildTests(unittest.TestCase):

@@ -5,7 +5,7 @@ import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
 
-from dailybuild import logtail
+from core import logtail
 
 
 class LogtailTests(unittest.TestCase):

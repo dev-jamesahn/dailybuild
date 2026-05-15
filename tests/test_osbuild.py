@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from dailybuild.osbuild import OSBuild, _EXPECT_CONFIG_SCRIPT
+from core.osbuild import OSBuild, _EXPECT_CONFIG_SCRIPT
 
 
 class OSBuildTests(unittest.TestCase):

@@ -4,7 +4,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-from dailybuild import runner
+from core import runner
 
 
 class RunnerTests(unittest.TestCase):
@@ -23,7 +23,7 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(linuxos_lock.name, "build_gdm7275x_linuxos_master_dailybuild.lock")
 
     def test_run_zephyros_delegates_to_native_runner(self):
-        with mock.patch("dailybuild.runner.zephyros.run", return_value=0) as run:
+        with mock.patch("core.runner.zephyros.run", return_value=0) as run:
             args = SimpleNamespace(config="/tmp/zephyros.env", dry_run=False)
             rc = runner.run_zephyros(args)
 

@@ -6,7 +6,7 @@ from contextlib import redirect_stdout
 from pathlib import Path
 from unittest import mock
 
-from dailybuild import ops
+from core import ops
 
 
 class OpsTests(unittest.TestCase):
@@ -132,7 +132,7 @@ class OpsTests(unittest.TestCase):
             config = Path(tmp) / "dailybuild_common.env"
             config.write_text("", encoding="utf-8")
             output = io.StringIO()
-            with mock.patch("dailybuild.ops.scheduler.test_once", return_value=0) as test_once:
+            with mock.patch("core.ops.scheduler.test_once", return_value=0) as test_once:
                 with mock.patch("builtins.input", side_effect=["1", "1", "5", "0"]):
                     with redirect_stdout(output):
                         rc = ops.interactive(argparse.Namespace(config=str(config)))
@@ -177,7 +177,7 @@ class OpsTests(unittest.TestCase):
             config = Path(tmp) / "dailybuild_common.env"
             config.write_text("", encoding="utf-8")
             output = io.StringIO()
-            with mock.patch("dailybuild.ops.show_status", return_value=0) as show_status:
+            with mock.patch("core.ops.show_status", return_value=0) as show_status:
                 with mock.patch("builtins.input", side_effect=["1", "4", "5", "0"]):
                     with redirect_stdout(output):
                         rc = ops.interactive(argparse.Namespace(config=str(config)))
