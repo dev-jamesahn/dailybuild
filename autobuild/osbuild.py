@@ -315,6 +315,8 @@ class OSBuild:
             if not self.fail_reason:
                 self.fail_reason = f"Command failed during stage: {self.current_stage}"
             self._analyze_failure()
+            if not self.failure_analysis:
+                self.failure_analysis = self.fail_reason
 
         if (self.repo_dir / ".git").is_dir():
             try:

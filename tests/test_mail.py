@@ -71,6 +71,52 @@ class MailTests(unittest.TestCase):
         self.assertIn("SBL : sblhash", html)
         self.assertIn("UBOOT : uboothash", html)
 
+    def test_build_html_uses_fail_reason_when_failure_analysis_missing(self):
+        with TemporaryDirectory() as tmp:
+            status = Path(tmp) / "status.txt"
+            status.write_text(
+                "\n".join([
+                    "[GDM7275X Zephyros]",
+                    "Result       : FAIL",
+                    "Fail reason  : Zephyros config prompt not found",
+                ]),
+                encoding="utf-8",
+            )
+
+            html = build_html(status, "[TestPy] Report", "20260515", r"K:\ENG\ENG05\CS_team\James")
+
+        self.assertIn("<strong>Failure analysis:</strong> Zephyros config prompt not found", html)
+
+    def test_build_html_uses_failure_report_when_status_has_no_failure_fields(self):
+        with TemporaryDirectory() as tmp:
+            report = Path(tmp) / "failure_report.log"
+            report.write_text(
+                "\n".join([
+                    "==========================================",
+                    "Zephyros Build Failure Report",
+                    "==========================================",
+                    "",
+                    "[Failure analysis]",
+                    "ninja: build stopped: subcommand failed.",
+                    "",
+                    "[Recent errors]",
+                ]),
+                encoding="utf-8",
+            )
+            status = Path(tmp) / "status.txt"
+            status.write_text(
+                "\n".join([
+                    "[GDM7275X Zephyros]",
+                    "Result       : FAIL",
+                    f"Failure rpt  : {report}",
+                ]),
+                encoding="utf-8",
+            )
+
+            html = build_html(status, "[TestPy] Report", "20260515", r"K:\ENG\ENG05\CS_team\James")
+
+        self.assertIn("<strong>Failure analysis:</strong> ninja: build stopped: subcommand failed.", html)
+
 
 if __name__ == "__main__":
     unittest.main()

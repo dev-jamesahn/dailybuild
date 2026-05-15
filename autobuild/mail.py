@@ -17,6 +17,10 @@ from . import upload
 from .upload import safe_name, upload_subdir
 
 
+_FAILURE_BLOCK_START = "[Failure analysis]"
+_RECENT_ERRORS_START = "[Recent errors]"
+
+
 def _manifest_block(section_name: str, fields: dict[str, str]) -> str:
     if "OpenWrt " not in section_name:
         return ""
@@ -63,6 +67,41 @@ def _unc_join(root: str, subdir: Path, rel_path: str) -> str:
     return "\\".join(pieces)
 
 
+def _failure_analysis(fields: dict[str, str]) -> str:
+    value = fields.get("Failure analysis", "").strip()
+    if value:
+        return value
+    value = fields.get("Fail reason", "").strip()
+    if value:
+        return value
+    report_path = fields.get("Failure rpt", "").strip()
+    if not report_path:
+        return ""
+    report_file = Path(report_path)
+    if not report_file.is_file():
+        return ""
+    lines = report_file.read_text(encoding="utf-8", errors="replace").splitlines()
+    in_block = False
+    collected: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped == _FAILURE_BLOCK_START:
+            in_block = True
+            continue
+        if in_block and stripped == _RECENT_ERRORS_START:
+            break
+        if in_block:
+            if stripped:
+                collected.append(stripped)
+            continue
+        if stripped.startswith("Fail reason"):
+            _, _, tail = stripped.partition(":")
+            fallback = tail.strip()
+            if fallback:
+                return fallback
+    return " ".join(collected).strip()
+
+
 def build_html(status_file: Path, subject: str, run_date: str, samba_unc_root: str, upload_target_subdir: Path | None = None) -> str:
     upload_target_subdir = upload_target_subdir or Path(run_date)
     groups: dict[str, list[tuple[str, str]]] = {}
@@ -70,7 +109,7 @@ def build_html(status_file: Path, subject: str, run_date: str, samba_unc_root: s
         model, item = _split_model_item(section.name)
         result = section.fields.get("Result", "UNKNOWN")
         duration = section.fields.get("Duration", "")
-        failure_analysis = section.fields.get("Failure analysis", "")
+        failure_analysis = _failure_analysis(section.fields)
         status_color = "#177245" if result == "SUCCESS" else "#b42318" if result == "FAIL" else "#475467"
         status_bg = "#ecfdf3" if result == "SUCCESS" else "#fef3f2" if result == "FAIL" else "#f2f4f7"
         upload_root = samba_unc_root.rstrip("\\")
