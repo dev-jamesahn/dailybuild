@@ -52,7 +52,7 @@ This repository is intended to run under:
 The legacy reference repository remains available at:
 
 ```text
-/home/jamesahn/gct-build-tools/dailybuild
+/home/jamesahn/gct-build-tools/autobuild
 ```
 
 Python dailybuild runtime data is separated under:
@@ -73,7 +73,7 @@ Runtime subdirectories:
 The old legacy workspace remains separate:
 
 ```text
-/home/jamesahn/gct_workspace/dailybuild
+/home/jamesahn/gct_workspace/autobuild
 ```
 
 ## Runtime Policy
@@ -326,14 +326,14 @@ image upload rules for that target.
 ```text
 dailybuild.py             CLI entrypoint
 config/                  env-style runtime configs
-dailybuild/config.py      env/config loading and shared paths
-dailybuild/runner.py      OpenWrt / OS / Zephyros runner adapters
-dailybuild/status.py      summary/status parsing and FW_build_info generation
-dailybuild/upload.py      Samba/local upload packaging
-dailybuild/mail.py        HTML mail generation and SMTP delivery
-dailybuild/scheduler.py   cron and one-time test adapters
-dailybuild/logtail.py     combined multi-log tail viewer
-dailybuild/gitinfo.py     commit metadata helpers
+core/config.py            env/config loading and shared paths
+core/runner.py            OpenWrt / OS / Zephyros runner adapters
+core/status.py            summary/status parsing and FW_build_info generation
+core/upload.py            Samba/local upload packaging
+core/mail.py              HTML mail generation and SMTP delivery
+core/scheduler.py         cron and one-time test adapters
+core/logtail.py           combined multi-log tail viewer
+core/gitinfo.py           commit metadata helpers
 ```
 
 ## Tests
